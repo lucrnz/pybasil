@@ -1,4 +1,4 @@
-# pyvbscript
+# pybasil
 
 A VBScript parser and interpreter written in Python. This library enables companies running legacy VBScript projects to migrate to cloud-native scenarios using Python instead of Windows.
 
@@ -20,13 +20,13 @@ A VBScript parser and interpreter written in Python. This library enables compan
 ## Installation
 
 ```bash
-uv add pyvbscript
+uv add pybasil
 ```
 
 Or with pip:
 
 ```bash
-pip install pyvbscript
+pip install pybasil
 ```
 
 ## Quick Start
@@ -35,19 +35,19 @@ pip install pyvbscript
 
 ```bash
 # Run a VBScript file
-pyvbscript script.vbs
+pybasil script.vbs
 
 # Pipe VBScript code
-echo 'WScript.Echo "Hello, World!"' | pyvbscript
+echo 'WScript.Echo "Hello, World!"' | pybasil
 
 # Execute code directly
-pyvbscript -c 'WScript.Echo 2 + 2'
+pybasil -c 'WScript.Echo 2 + 2'
 ```
 
 ### Python API
 
 ```python
-from pyvbscript import run, parse
+from pybasil import run, parse
 
 # Execute VBScript code directly
 run('WScript.Echo "Hello, World!"')
@@ -59,7 +59,7 @@ program = parse("""
     y = 20
     WScript.Echo x + y
 """)
-from pyvbscript import Interpreter
+from pybasil import Interpreter
 interpreter = Interpreter()
 interpreter.interpret(program)
 ```
@@ -69,7 +69,7 @@ interpreter.interpret(program)
 ### Variables and Assignments
 
 ```python
-from pyvbscript import run
+from pybasil import run
 
 # Implicit variable creation
 run('x = 42')
@@ -93,7 +93,7 @@ run('Set obj = CreateObject("Scripting.FileSystemObject")')
 ### Arithmetic Operations
 
 ```python
-from pyvbscript import run
+from pybasil import run
 
 run('WScript.Echo 5 + 3')      # Output: 8
 run('WScript.Echo 10 - 4')     # Output: 6
@@ -107,7 +107,7 @@ run('WScript.Echo 2 ^ 10')     # Output: 1024
 ### String Operations
 
 ```python
-from pyvbscript import run
+from pybasil import run
 
 # Concatenation with &
 run('WScript.Echo "Hello" & " " & "World"')
@@ -123,7 +123,7 @@ run('WScript.Echo LCase("HELLO")')         # Output: hello
 ### Comparison and Logical Operators
 
 ```python
-from pyvbscript import run
+from pybasil import run
 
 # Comparisons
 run('WScript.Echo 5 = 5')      # Output: True
@@ -139,7 +139,7 @@ run('WScript.Echo Not True')         # Output: False
 ### Special Values
 
 ```python
-from pyvbscript import run
+from pybasil import run
 
 # Nothing - for object references
 run('x = Nothing')
@@ -158,7 +158,7 @@ run('x = Null')
 Parse and execute VBScript source code.
 
 ```python
-from pyvbscript import run
+from pybasil import run
 
 run('WScript.Echo "Hello"')
 ```
@@ -168,7 +168,7 @@ run('WScript.Echo "Hello"')
 Parse VBScript source code and return an AST.
 
 ```python
-from pyvbscript import parse
+from pybasil import parse
 
 program = parse('x = 42')
 ```
@@ -178,7 +178,7 @@ program = parse('x = 42')
 Tree-walking interpreter for VBScript AST.
 
 ```python
-from pyvbscript import Interpreter, parse
+from pybasil import Interpreter, parse
 
 interpreter = Interpreter()
 program = parse('x = 42')
@@ -190,8 +190,8 @@ interpreter.interpret(program)
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/pyvbscript.git
-cd pyvbscript
+git clone https://github.com/your-org/pybasil.git
+cd pybasil
 uv sync
 ```
 

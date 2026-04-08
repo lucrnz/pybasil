@@ -1,0 +1,233 @@
+// VBScript Grammar for pybasil
+// This grammar implements a subset of VBScript for parsing and interpretation
+
+// Start rule
+start: statement*
+
+// Statements
+statement: dim_statement
+         | assignment_statement
+         | set_statement
+         | expression_statement
+         | if_statement
+         | for_statement
+         | do_statement
+         | while_statement
+         | exit_statement
+         | sub_statement
+         | function_statement
+         | call_statement
+
+// Dim statement - can declare single or multiple variables
+dim_statement: DIM_KW identifier ("," identifier)*
+
+// Assignment statements
+assignment_statement: LET_KW? identifier "=" expression
+set_statement: SET_KW identifier "=" expression
+
+// Expression statement (for standalone expressions like WScript.Echo)
+// This handles method calls without parentheses like: WScript.Echo "Hello"
+expression_statement: expression arg_list?
+                    | expression
+
+// If statement: If condition Then ... [ElseIf condition Then ...]* [Else ...] End If
+if_statement: IF_KW expression THEN_KW block elseif_clause* else_clause? END_KW IF_KW
+elseif_clause: ELSEIF_KW expression THEN_KW block
+else_clause: ELSE_KW block
+
+// Block of statements (does not include procedure definitions)
+block: block_statement*
+
+// Block statements - same as statement but excludes procedure definitions
+block_statement: dim_statement
+         | assignment_statement
+         | set_statement
+         | expression_statement
+         | if_statement
+         | for_statement
+         | do_statement
+         | while_statement
+         | exit_statement
+
+// For statement: For i = start To end [Step step] ... Next
+for_statement: FOR_KW identifier "=" expression TO_KW expression (STEP_KW expression)? block NEXT_KW
+
+// While statement: While condition ... Wend
+while_statement: WHILE_KW expression block WEND_KW
+
+// Do statement: Do [{While|Until} condition] ... Loop [{While|Until} condition]
+// Pre-test: Do While/Until condition ... Loop
+// Post-test: Do ... Loop While/Until condition
+// Infinite: Do ... Loop
+// Using separate rules with inline keywords to avoid ambiguity with while_statement
+do_statement: DO_KW WHILE_KW expression block LOOP_KW         -> do_while_pretest
+            | DO_KW UNTIL_KW expression block LOOP_KW         -> do_until_pretest
+            | DO_KW block LOOP_KW WHILE_KW expression         -> do_while_posttest
+            | DO_KW block LOOP_KW UNTIL_KW expression         -> do_until_posttest
+            | DO_KW block LOOP_KW                             -> do_infinite
+
+// Exit statement: Exit For | Exit Do | Exit Sub | Exit Function
+exit_statement: EXIT_KW (FOR_KW | DO_KW | SUB_KW | FUNCTION_KW)
+
+// Sub procedure: Sub name[(params)] ... End Sub
+sub_statement: SUB_KW identifier ("(" param_list? ")")? block END_KW SUB_KW
+
+// Function procedure: Function name[(params)] ... End Function
+function_statement: FUNCTION_KW identifier ("(" param_list? ")")? block END_KW FUNCTION_KW
+
+// Parameter list - each parameter can have optional ByRef/ByVal modifier
+// Use NAME directly to avoid conflicts with identifier/atom
+// Higher priority than identifier to resolve reduce/reduce conflict
+param_list: param_item ("," param_item)*
+param_item.3: BYREF_KW NAME
+          | BYVAL_KW NAME
+          | NAME
+
+// Call statement: Call name[(args)] - parentheses are optional
+call_statement: CALL_KW identifier ("(" arg_list? ")")?
+
+// Expressions with operator precedence (lowest to highest)
+?expression: imp_expr
+
+?imp_expr: eqv_expr imp_tail*
+imp_tail: IMP_KW eqv_expr
+
+?eqv_expr: xor_expr eqv_tail*
+eqv_tail: EQV_KW xor_expr
+
+?xor_expr: or_expr xor_tail*
+xor_tail: XOR_KW or_expr
+
+?or_expr: and_expr or_tail*
+or_tail: OR_KW and_expr
+
+?and_expr: not_expr and_tail*
+and_tail: AND_KW not_expr
+
+?not_expr: NOT_KW not_expr | comparison_expr
+
+?comparison_expr: concat_expr (comparison_op concat_expr)?
+comparison_op: EQUAL | NOT_EQUAL | LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL | IS_KW
+
+?concat_expr: add_expr concat_tail*
+concat_tail: AMPERSAND add_expr
+
+?add_expr: mul_expr (add_plus | add_minus)*
+add_plus: PLUS mul_expr
+add_minus: MINUS mul_expr
+
+?mul_expr: intdiv_expr (mul_star | mul_slash)*
+mul_star: STAR intdiv_expr
+mul_slash: SLASH intdiv_expr
+
+?intdiv_expr: mod_expr intdiv_tail*
+intdiv_tail: BACKSLASH mod_expr
+
+?mod_expr: pow_expr mod_tail*
+mod_tail: MOD_KW pow_expr
+
+?pow_expr: unary_expr ("^" unary_expr)*
+
+?unary_expr: MINUS unary_expr
+           | PLUS unary_expr
+           | call_or_access
+
+// Call or member access - handles both function calls and member access
+?call_or_access: atom ("." identifier | "(" arg_list ")" | "(" ")")*
+
+// Primary expressions (atoms)
+?atom: literal
+     | identifier
+     | paren_expr
+     | new_expr
+
+?paren_expr: "(" expression ")"
+
+// New expression
+?new_expr: NEW_KW identifier
+
+// Argument list
+arg_list: expression ("," expression)*
+
+// Literals
+?literal: NUMBER
+        | STRING
+        | TRUE_KW      -> true_literal
+        | FALSE_KW     -> false_literal
+        | NOTHING_KW   -> nothing_literal
+        | EMPTY_KW     -> empty_literal
+        | NULL_KW      -> null_literal
+
+// Identifier
+identifier: NAME
+
+// Terminals - Keywords have higher priority than NAME
+// Use word boundary matching to prevent matching keywords as part of identifiers
+DIM_KW.2: /dim(?![_a-zA-Z0-9])/i
+LET_KW.2: /let(?![_a-zA-Z0-9])/i
+SET_KW.2: /set(?![_a-zA-Z0-9])/i
+IF_KW.2: /if(?![_a-zA-Z0-9])/i
+THEN_KW.2: /then(?![_a-zA-Z0-9])/i
+ELSE_KW.2: /else(?![_a-zA-Z0-9])/i
+ELSEIF_KW.2: /elseif(?![_a-zA-Z0-9])/i
+END_KW.2: /end(?![_a-zA-Z0-9])/i
+FOR_KW.2: /for(?![_a-zA-Z0-9])/i
+TO_KW.2: /to(?![_a-zA-Z0-9])/i
+STEP_KW.2: /step(?![_a-zA-Z0-9])/i
+NEXT_KW.2: /next(?![_a-zA-Z0-9])/i
+DO_KW.2: /do(?![_a-zA-Z0-9])/i
+LOOP_KW.2: /loop(?![_a-zA-Z0-9])/i
+WHILE_KW.2: /while(?![_a-zA-Z0-9])/i
+UNTIL_KW.2: /until(?![_a-zA-Z0-9])/i
+WEND_KW.2: /wend(?![_a-zA-Z0-9])/i
+SELECT_KW.2: /select(?![_a-zA-Z0-9])/i
+CASE_KW.2: /case(?![_a-zA-Z0-9])/i
+EXIT_KW.2: /exit(?![_a-zA-Z0-9])/i
+FUNCTION_KW.2: /function(?![_a-zA-Z0-9])/i
+SUB_KW.2: /sub(?![_a-zA-Z0-9])/i
+CALL_KW.2: /call(?![_a-zA-Z0-9])/i
+CLASS_KW.2: /class(?![_a-zA-Z0-9])/i
+PROPERTY_KW.2: /property(?![_a-zA-Z0-9])/i
+GET_KW.2: /get(?![_a-zA-Z0-9])/i
+BYREF_KW.2: /byref(?![_a-zA-Z0-9])/i
+BYVAL_KW.2: /byval(?![_a-zA-Z0-9])/i
+NOT_KW.2: /not(?![_a-zA-Z0-9])/i
+AND_KW.2: /and(?![_a-zA-Z0-9])/i
+OR_KW.2: /or(?![_a-zA-Z0-9])/i
+XOR_KW.2: /xor(?![_a-zA-Z0-9])/i
+EQV_KW.2: /eqv(?![_a-zA-Z0-9])/i
+IMP_KW.2: /imp(?![_a-zA-Z0-9])/i
+MOD_KW.2: /mod(?![_a-zA-Z0-9])/i
+IS_KW.2: /is(?![_a-zA-Z0-9])/i
+NEW_KW.2: /new(?![_a-zA-Z0-9])/i
+TRUE_KW.2: /true(?![_a-zA-Z0-9])/i
+FALSE_KW.2: /false(?![_a-zA-Z0-9])/i
+NOTHING_KW.2: /nothing(?![_a-zA-Z0-9])/i
+EMPTY_KW.2: /empty(?![_a-zA-Z0-9])/i
+NULL_KW.2: /null(?![_a-zA-Z0-9])/i
+EQUAL: "="
+NOT_EQUAL: "<>"
+LESS_THAN: "<"
+GREATER_THAN: ">"
+LESS_EQUAL: "<="
+GREATER_EQUAL: ">="
+AMPERSAND: "&"
+PLUS: "+"
+MINUS: "-"
+STAR: "*"
+SLASH: "/"
+BACKSLASH: "\\"
+STRING: /"[^"]*"/
+NUMBER: /\d+(\.\d+)?([eE][+-]?\d+)?/
+NAME.1: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+// Whitespace and comments
+%import common.WS
+%import common.NEWLINE
+%ignore WS
+%ignore NEWLINE
+
+// Comments: single quote or REM (case-insensitive)
+// REM comments start with Rem followed by whitespace
+%ignore /'[^\n]*/
+%ignore /[Rr][Ee][Mm][ \t]+[^\n]*/
