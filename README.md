@@ -1,32 +1,46 @@
 # pybasil
 
-A VBScript parser and interpreter written in Python. This library enables companies running legacy VBScript projects to migrate to cloud-native scenarios using Python instead of Windows.
+A VBScript parser and interpreter written in Python, focused on a practical and tested subset of the language for migration and automation workflows.
 
-## Features
+## Current Support
 
-- **Tree-walking interpreter** for VBScript source code
-- **Variables**: Implicit creation allowed, Dim statement (single & multiple variables)
-- **Literals**: Numbers, Strings, Booleans, Nothing, Empty, Null
-- **Assignments**: Let style (`x = 5`) and Set style (`Set obj = CreateObject()`)
+- **Tree-walking interpreter** for a tested VBScript subset
+- **Variables & literals**:
+  - Variables are case-insensitive
+  - Implicit variable creation is supported (`Empty` default)
+  - `Dim` declarations (single and multiple variables)
+  - Literals: numbers (including scientific notation), strings, booleans, `Nothing`, `Empty`, `Null`
+- **Statements**: `Dim`, assignments (`Let` optional), `Set`, `Call`, and expression statements (for things like `WScript.Echo`)
 - **Operators**:
-  - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^` (exponentiation)
-  - String: `&` (concatenation)
+  - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
+  - String: `&`
   - Comparison: `=`, `<>`, `<`, `>`, `<=`, `>=`, `Is`
   - Logical: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp`
-- **WScript.Echo**: Basic output for testing (prints to stdout)
-- **Built-in functions**: Len, Left, Right, Mid, Trim, UCase, LCase, CStr, CInt, and more
-- **CLI**: Run VBScript code from files, stdin, or command-line arguments
+- **Control flow**:
+  - `If ... Then ... ElseIf ... Else ... End If`
+  - `For ... To ... [Step ...] ... Next`
+  - `While ... Wend`
+  - `Do While/Until ... Loop` and `Do ... Loop While/Until`
+  - `Exit For` and `Exit Do`
+- **Procedures**:
+  - `Sub ... End Sub` and `Function ... End Function`
+  - `Call` statements and implicit procedure calls
+  - `ByRef` / `ByVal` parameters (`ByRef` default)
+  - `Exit Sub` and `Exit Function`
+  - Recursive function/procedure calls
+- **Built-in runtime**:
+  - `WScript.Echo`, `WScript.Quit`
+  - String helpers (`Len`, `Left`, `Right`, `Mid`, `Trim`, `LTrim`, `RTrim`, `UCase`, `LCase`, `InStr`, `Replace`, `Split`, `Join`)
+  - Conversion/type helpers (`CStr`, `CInt`, `CLng`, `CDbl`, `CBool`, `CDate`, `IsNumeric`, `IsArray`, `IsDate`, `IsEmpty`, `IsNull`, `IsObject`, `TypeName`, `VarType`)
+  - Math/random helpers (`Abs`, `Sqr`, `Int`, `Fix`, `Round`, `Rnd`, `Randomize`)
+  - `MsgBox`, `InputBox`, `CreateObject`, `GetObject` (simplified behavior)
+- **Comments**: single quote (`'`) and `Rem`
+- **CLI**: execute code from files, stdin, or `-c/--code`
 
 ## Installation
 
 ```bash
 uv add pybasil
-```
-
-Or with pip:
-
-```bash
-pip install pybasil
 ```
 
 ## Quick Start
@@ -173,7 +187,7 @@ from pybasil import parse
 program = parse('x = 42')
 ```
 
-### `Interpreter`
+### `Interpreter(output_stream=None)`
 
 Tree-walking interpreter for VBScript AST.
 
@@ -185,12 +199,23 @@ program = parse('x = 42')
 interpreter.interpret(program)
 ```
 
+### `VBScriptParser`
+
+Parser class that preprocesses source (including `Rem` comments) and returns an AST.
+
+```python
+from pybasil import VBScriptParser
+
+parser = VBScriptParser()
+program = parser.parse('x = 42')
+```
+
 ## Development
 
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/pybasil.git
+git clone https://github.com/lucrnz/pybasil.git
 cd pybasil
 uv sync
 ```
