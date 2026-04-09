@@ -44,6 +44,8 @@ from .ast_nodes import (
     ComparisonOp,
     ExitType,
     LoopConditionType,
+    OnErrorResumeNextStatement,
+    OnErrorGoToStatement,
 )
 
 
@@ -659,6 +661,22 @@ class VBScriptTransformer(Transformer):
                 arguments = item
         
         return CallStatement(name=name, arguments=arguments)
+
+    def on_error_resume_next(self, items: List) -> OnErrorResumeNextStatement:
+        """Transform On Error Resume Next statement."""
+        return OnErrorResumeNextStatement()
+
+    def on_error_goto(self, items: List) -> OnErrorGoToStatement:
+        """Transform On Error GoTo statement."""
+        # items: [ON_KW, ERROR_KW, GOTO_KW, NUMBER]
+        # Find the NUMBER token
+        for item in items:
+            if isinstance(item, Token) and item.type == 'NUMBER':
+                return OnErrorGoToStatement(label=int(item.value))
+            elif isinstance(item, NumberLiteral):
+                return OnErrorGoToStatement(label=int(item.value))
+        # Default to 0 if not found
+        return OnErrorGoToStatement(label=0)
 
 
 import re

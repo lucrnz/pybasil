@@ -17,6 +17,7 @@ statement: dim_statement
          | sub_statement
          | function_statement
          | call_statement
+         | on_error_statement
 
 // Dim statement - can declare single or multiple variables
 dim_statement: DIM_KW identifier ("," identifier)*
@@ -27,8 +28,9 @@ set_statement: SET_KW identifier "=" expression
 
 // Expression statement (for standalone expressions like WScript.Echo)
 // This handles method calls without parentheses like: WScript.Echo "Hello"
-expression_statement: expression arg_list?
-                    | expression
+// The arg_list must start on the same line as the expression to avoid
+// consuming the next statement as an argument
+expression_statement: expression (arg_list)?
 
 // If statement: If condition Then ... [ElseIf condition Then ...]* [Else ...] End If
 if_statement: IF_KW expression THEN_KW block elseif_clause* else_clause? END_KW IF_KW
@@ -48,6 +50,7 @@ block_statement: dim_statement
          | do_statement
          | while_statement
          | exit_statement
+         | on_error_statement
 
 // For statement: For i = start To end [Step step] ... Next
 for_statement: FOR_KW identifier "=" expression TO_KW expression (STEP_KW expression)? block NEXT_KW
@@ -85,6 +88,10 @@ param_item.3: BYREF_KW NAME
 
 // Call statement: Call name[(args)] - parentheses are optional
 call_statement: CALL_KW identifier ("(" arg_list? ")")?
+
+// On Error statement: On Error Resume Next | On Error GoTo 0
+on_error_statement: ON_KW ERROR_KW RESUME_KW NEXT_KW    -> on_error_resume_next
+                 | ON_KW ERROR_KW GOTO_KW NUMBER        -> on_error_goto
 
 // Expressions with operator precedence (lowest to highest)
 ?expression: imp_expr
@@ -205,6 +212,10 @@ FALSE_KW.2: /false(?![_a-zA-Z0-9])/i
 NOTHING_KW.2: /nothing(?![_a-zA-Z0-9])/i
 EMPTY_KW.2: /empty(?![_a-zA-Z0-9])/i
 NULL_KW.2: /null(?![_a-zA-Z0-9])/i
+ON_KW.2: /on(?![_a-zA-Z0-9])/i
+ERROR_KW.2: /error(?![_a-zA-Z0-9])/i
+RESUME_KW.2: /resume(?![_a-zA-Z0-9])/i
+GOTO_KW.2: /goto(?![_a-zA-Z0-9])/i
 EQUAL: "="
 NOT_EQUAL: "<>"
 LESS_THAN: "<"

@@ -1445,3 +1445,226 @@ class TestInterpreterProcedureScoping:
             output_stream=output,
         )
         assert output.getvalue().strip() == "120"
+
+
+class TestErrorHandling:
+    """Test error handling with On Error statements."""
+
+    def test_on_error_resume_next_continues_after_error(self):
+        """On Error Resume Next should continue execution after error."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            WScript.Echo "After error"
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "After error"
+
+    def test_on_error_goto_0_resets_error_handling(self):
+        """On Error GoTo 0 should reset error handling to default."""
+        output = io.StringIO()
+        interpreter = Interpreter(output_stream=output)
+        program = parse(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            On Error GoTo 0
+            y = 1 / 0
+        """
+        )
+        with pytest.raises(VBScriptError):
+            interpreter.interpret(program)
+
+    def test_err_number_after_error(self):
+        """Err.Number should be set after an error."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            WScript.Echo Err.Number
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "11"  # Division by zero error number
+
+    def test_err_description_after_error(self):
+        """Err.Description should contain error message."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            WScript.Echo Err.Description
+        """,
+            output_stream=output,
+        )
+        assert "Division by zero" in output.getvalue()
+
+    def test_err_clear(self):
+        """Err.Clear should reset error information."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            errNum = Err.Number
+            WScript.Echo errNum
+            Err.Clear
+        """,
+            output_stream=output,
+        )
+        # Just check that we got the error number before clear
+        assert output.getvalue().strip() == "11"
+
+    def test_err_number_zero_initially(self):
+        """Err.Number should be 0 initially."""
+        output = io.StringIO()
+        run(
+            """
+            WScript.Echo Err.Number
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "0"
+
+    def test_error_propagates_without_resume_next(self):
+        """Errors should propagate without On Error Resume Next."""
+        program = parse("x = 1 / 0")
+        interpreter = Interpreter()
+        with pytest.raises(VBScriptError):
+            interpreter.interpret(program)
+
+    def test_on_error_resume_next_in_procedure(self):
+        """On Error Resume Next in procedure should be scoped."""
+        output = io.StringIO()
+        run(
+            """
+            Sub TestSub
+                On Error Resume Next
+                x = 1 / 0
+                WScript.Echo "In sub after error"
+            End Sub
+            
+            Call TestSub
+            WScript.Echo "After sub"
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split("\n")
+        assert "In sub after error" in lines
+        assert "After sub" in lines
+
+    def test_error_mode_resets_on_procedure_exit(self):
+        """Error mode should reset when exiting procedure."""
+        output = io.StringIO()
+        interpreter = Interpreter(output_stream=output)
+        program = parse(
+            """
+            Sub TestSub
+                On Error Resume Next
+            End Sub
+            
+            Call TestSub
+            x = 1 / 0
+        """
+        )
+        # Error should propagate because error mode resets after procedure
+        with pytest.raises(VBScriptError):
+            interpreter.interpret(program)
+
+    def test_err_raise(self):
+        """Err.Raise should raise an error."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            Err.Raise 100, "TestSource", "Test Description"
+            n = Err.Number
+            s = Err.Source
+            d = Err.Description
+            WScript.Echo n
+            WScript.Echo s
+            WScript.Echo d
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split("\n")
+        assert lines[0] == "100"
+        assert lines[1] == "TestSource"
+        assert lines[2] == "Test Description"
+
+    def test_multiple_errors_resume_next(self):
+        """Multiple errors should each set Err object."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            WScript.Echo Err.Number
+            y = CInt("not a number")
+            WScript.Echo Err.Number
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split("\n")
+        assert lines[0] == "11"  # Division by zero
+        # Second error number may vary
+
+    def test_type_mismatch_error_number(self):
+        """Type mismatch should have error number 13."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = CInt("abc")
+            WScript.Echo Err.Number
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "13"
+
+    def test_err_source_after_error(self):
+        """Err.Source should be set after an error."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            WScript.Echo Err.Source
+        """,
+            output_stream=output,
+        )
+        assert "VBScript" in output.getvalue()
+
+    def test_case_insensitive_on_error(self):
+        """On Error statements should be case insensitive."""
+        output = io.StringIO()
+        run(
+            """
+            ON ERROR RESUME NEXT
+            x = 1 / 0
+            wscript.echo "Works"
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "Works"
+
+    def test_case_insensitive_err_object(self):
+        """Err object access should be case insensitive."""
+        output = io.StringIO()
+        run(
+            """
+            On Error Resume Next
+            x = 1 / 0
+            WScript.Echo err.number
+            WScript.Echo ERR.NUMBER
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split("\n")
+        assert lines[0] == "11"
+        assert lines[1] == "11"

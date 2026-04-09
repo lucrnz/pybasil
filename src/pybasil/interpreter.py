@@ -44,39 +44,37 @@ from .ast_nodes import (
     ComparisonOp,
     ExitType,
     LoopConditionType,
+    OnErrorResumeNextStatement,
+    OnErrorGoToStatement,
+    ErrorHandlingMode,
 )
 
 
 class VBScriptError(Exception):
     """Base exception for VBScript runtime errors."""
-
     pass
 
 
 class VBScriptObject:
     """Base class for VBScript objects."""
-
     pass
 
 
 @dataclass
 class VBScriptNothing:
     """Represents VBScript Nothing value."""
-
     pass
 
 
 @dataclass
 class VBScriptEmpty:
     """Represents VBScript Empty value."""
-
     pass
 
 
 @dataclass
 class VBScriptNull:
     """Represents VBScript Null value."""
-
     pass
 
 
@@ -86,16 +84,88 @@ EMPTY = VBScriptEmpty()
 NULL = VBScriptNull()
 
 
+class ErrObject:
+    """VBScript Err object for error information."""
+    
+    def __init__(self):
+        self._number: int = 0
+        self._source: str = ""
+        self._description: str = ""
+        self._helpfile: str = ""
+        self._helpcontext: int = 0
+    
+    @property
+    def Number(self) -> int:
+        """Error number (default property)."""
+        return self._number
+    
+    @Number.setter
+    def Number(self, value: int):
+        self._number = value
+    
+    @property
+    def Source(self) -> str:
+        """Source of the error."""
+        return self._source
+    
+    @Source.setter
+    def Source(self, value: str):
+        self._source = value
+    
+    @property
+    def Description(self) -> str:
+        """Error description."""
+        return self._description
+    
+    @Description.setter
+    def Description(self, value: str):
+        self._description = value
+    
+    @property
+    def HelpFile(self) -> str:
+        """Help file path."""
+        return self._helpfile
+    
+    @HelpFile.setter
+    def HelpFile(self, value: str):
+        self._helpfile = value
+    
+    @property
+    def HelpContext(self) -> int:
+        """Help context ID."""
+        return self._helpcontext
+    
+    @HelpContext.setter
+    def HelpContext(self, value: int):
+        self._helpcontext = value
+    
+    def Clear(self):
+        """Clear the error information."""
+        self._number = 0
+        self._source = ""
+        self._description = ""
+        self._helpfile = ""
+        self._helpcontext = 0
+    
+    def Raise(self, number: int, source: str = "", description: str = "", 
+              helpfile: str = "", helpcontext: int = 0):
+        """Raise a runtime error."""
+        self._number = number
+        self._source = source
+        self._description = description
+        self._helpfile = helpfile
+        self._helpcontext = helpcontext
+        raise VBScriptError(f"Error {number}: {description}" if description else f"Error {number}")
+
+
 class ExitLoopException(Exception):
     """Exception raised when Exit For or Exit Do is encountered."""
-
     def __init__(self, exit_type: ExitType):
         self.exit_type = exit_type
 
 
 class ExitProcedureException(Exception):
     """Exception raised when Exit Sub or Exit Function is encountered."""
-
     def __init__(self, exit_type: ExitType, return_value: Any = EMPTY):
         self.exit_type = exit_type
         self.return_value = return_value
@@ -103,14 +173,12 @@ class ExitProcedureException(Exception):
 
 class UndefinedVariableError(VBScriptError):
     """Raised when accessing an undefined variable."""
-
     pass
 
 
 @dataclass
 class Procedure:
     """Represents a user-defined procedure (Sub or Function)."""
-
     name: str
     parameters: List[Parameter]
     body: List[ASTNode]
@@ -120,7 +188,7 @@ class Procedure:
 class Environment:
     """Variable environment for VBScript execution."""
 
-    def __init__(self, parent: Optional["Environment"] = None):
+    def __init__(self, parent: Optional['Environment'] = None):
         self._variables: Dict[str, Any] = {}
         self._parent = parent
 
@@ -209,6 +277,8 @@ class Interpreter:
         self._environment = Environment()
         self._output_stream = output_stream
         self._procedures: Dict[str, Procedure] = {}  # User-defined procedures
+        self._error_mode: ErrorHandlingMode = ErrorHandlingMode.DEFAULT
+        self._err: ErrObject = ErrObject()
         self._setup_builtins()
 
     def _setup_builtins(self) -> None:
@@ -216,60 +286,169 @@ class Interpreter:
         # Create WScript object
         wscript = WScriptObject(self._output_stream)
         self._environment.define("WScript", wscript)
+        
+        # Create Err object
+        self._environment.define("Err", self._err)
 
         # Built-in functions
         self._builtins: Dict[str, Callable] = {
-            "msgbox": self._builtin_msgbox,
-            "inputbox": self._builtin_inputbox,
-            "len": self._builtin_len,
-            "left": self._builtin_left,
-            "right": self._builtin_right,
-            "mid": self._builtin_mid,
-            "trim": self._builtin_trim,
-            "ltrim": self._builtin_ltrim,
-            "rtrim": self._builtin_rtrim,
-            "ucase": self._builtin_ucase,
-            "lcase": self._builtin_lcase,
-            "instr": self._builtin_instr,
-            "replace": self._builtin_replace,
-            "split": self._builtin_split,
-            "join": self._builtin_join,
-            "cstr": self._builtin_cstr,
-            "cint": self._builtin_cint,
-            "clng": self._builtin_clng,
-            "cdbl": self._builtin_cdbl,
-            "cbool": self._builtin_cbool,
-            "cdate": self._builtin_cdate,
-            "isnumeric": self._builtin_isnumeric,
-            "isarray": self._builtin_isarray,
-            "isdate": self._builtin_isdate,
-            "isempty": self._builtin_isempty,
-            "isnull": self._builtin_isnull,
-            "isnumeric": self._builtin_isnumeric,
-            "isobject": self._builtin_isobject,
-            "typename": self._builtin_typename,
-            "vartype": self._builtin_vartype,
-            "abs": self._builtin_abs,
-            "sqr": self._builtin_sqr,
-            "int": self._builtin_int,
-            "fix": self._builtin_fix,
-            "round": self._builtin_round,
-            "rnd": self._builtin_rnd,
-            "randomize": self._builtin_randomize,
-            "createobject": self._builtin_createobject,
-            "getobject": self._builtin_getobject,
+            'msgbox': self._builtin_msgbox,
+            'inputbox': self._builtin_inputbox,
+            'len': self._builtin_len,
+            'left': self._builtin_left,
+            'right': self._builtin_right,
+            'mid': self._builtin_mid,
+            'trim': self._builtin_trim,
+            'ltrim': self._builtin_ltrim,
+            'rtrim': self._builtin_rtrim,
+            'ucase': self._builtin_ucase,
+            'lcase': self._builtin_lcase,
+            'instr': self._builtin_instr,
+            'replace': self._builtin_replace,
+            'split': self._builtin_split,
+            'join': self._builtin_join,
+            'cstr': self._builtin_cstr,
+            'cint': self._builtin_cint,
+            'clng': self._builtin_clng,
+            'cdbl': self._builtin_cdbl,
+            'cbool': self._builtin_cbool,
+            'cdate': self._builtin_cdate,
+            'isnumeric': self._builtin_isnumeric,
+            'isarray': self._builtin_isarray,
+            'isdate': self._builtin_isdate,
+            'isempty': self._builtin_isempty,
+            'isnull': self._builtin_isnull,
+            'isnumeric': self._builtin_isnumeric,
+            'isobject': self._builtin_isobject,
+            'typename': self._builtin_typename,
+            'vartype': self._builtin_vartype,
+            'abs': self._builtin_abs,
+            'sqr': self._builtin_sqr,
+            'int': self._builtin_int,
+            'fix': self._builtin_fix,
+            'round': self._builtin_round,
+            'rnd': self._builtin_rnd,
+            'randomize': self._builtin_randomize,
+            'createobject': self._builtin_createobject,
+            'getobject': self._builtin_getobject,
         }
 
     def interpret(self, program: Program) -> Any:
         """Interpret a VBScript program."""
         result = None
-        for statement in program.statements:
-            result = self._execute(statement)
+        statements = list(program.statements)
+        i = 0
+        while i < len(statements):
+            statement = statements[i]
+            # Check for the grammar ambiguity case where a method call without args
+            # (like Err.Clear) has consumed the next statement as an argument
+            if isinstance(statement, ExpressionStatement):
+                if isinstance(statement.expression, MethodCall):
+                    if isinstance(statement.expression.object, Identifier):
+                        if statement.expression.object.name.lower() == 'err':
+                            method = statement.expression.method.lower()
+                            if method == 'clear' and statement.expression.arguments:
+                                # Err.Clear with spurious arguments - this is a grammar artifact
+                                # The arguments should be executed as separate statements
+                                # But we need to handle the case where the argument is incomplete
+                                # (e.g., WScript.Echo without its actual arguments)
+                                self._err.Clear()
+                                for j, arg in enumerate(statement.expression.arguments):
+                                    if isinstance(arg, MemberAccess):
+                                        # Check if the next statement(s) should be arguments to this
+                                        # This happens when the parser split "WScript.Echo arg" into
+                                        # MemberAccess(WScript.Echo) and the arg as separate statements
+                                        remaining_args = statement.expression.arguments[j+1:]
+                                        next_stmts = []
+                                        k = i + 1
+                                        while k < len(statements):
+                                            next_stmt = statements[k]
+                                            if isinstance(next_stmt, ExpressionStatement):
+                                                # This could be an argument to the member access
+                                                next_stmts.append(next_stmt.expression)
+                                                k += 1
+                                                # Check if we've collected enough args or hit a stopping point
+                                                break
+                                            else:
+                                                break
+                                        if next_stmts:
+                                            # Execute as a method call with the collected arguments
+                                            self._execute_with_error_handling(ExpressionStatement(
+                                                expression=MethodCall(
+                                                    object=arg.object,
+                                                    method=arg.member,
+                                                    arguments=next_stmts
+                                                )
+                                            ))
+                                            i = k  # Skip the consumed statements
+                                        else:
+                                            # Just execute as a standalone member access
+                                            self._execute_with_error_handling(ExpressionStatement(expression=arg))
+                                    else:
+                                        # Execute as a standalone expression
+                                        self._execute_with_error_handling(ExpressionStatement(expression=arg))
+                                i += 1
+                                continue
+            result = self._execute_with_error_handling(statement)
+            i += 1
         return result
+
+    def _execute_with_error_handling(self, node: ASTNode) -> Any:
+        """Execute a statement with error handling based on current mode."""
+        # Clear any previous error before executing a new statement
+        if self._error_mode == ErrorHandlingMode.DEFAULT:
+            self._err.Clear()
+        
+        try:
+            return self._execute(node)
+        except VBScriptError as e:
+            # Check if this error was raised by Err.Raise
+            # Err.Raise sets the properties before raising, so we shouldn't overwrite
+            if self._err._number == 0 or not self._err._description:
+                # Set the Err object with error information
+                self._err._number = self._get_error_number(e)
+                self._err._description = str(e)
+                self._err._source = "Microsoft VBScript runtime error"
+            
+            if self._error_mode == ErrorHandlingMode.RESUME_NEXT:
+                # Continue to next statement
+                return None
+            else:
+                # Re-raise the error
+                raise
+        except ExitLoopException:
+            # These should always propagate
+            raise
+        except ExitProcedureException:
+            # These should always propagate
+            raise
+    
+    def _get_error_number(self, error: VBScriptError) -> int:
+        """Extract or generate an error number from a VBScriptError."""
+        # Try to parse error number from the error message
+        msg = str(error)
+        if msg.startswith("Error ") and ":" in msg:
+            try:
+                num_part = msg.split(":")[0].replace("Error ", "").strip()
+                return int(num_part)
+            except ValueError:
+                pass
+        # Default error numbers for common errors
+        if "Type mismatch" in msg:
+            return 13  # Type mismatch
+        elif "Division by zero" in msg:
+            return 11  # Division by zero
+        elif "Object required" in msg:
+            return 424  # Object required
+        elif "Unknown procedure" in msg or "Unknown function" in msg:
+            return 438  # Object doesn't support this property or method
+        elif "Subscript out of range" in msg:
+            return 9  # Subscript out of range
+        return 1000  # Generic runtime error
 
     def _execute(self, node: ASTNode) -> Any:
         """Execute a statement node."""
-        method_name = f"_execute_{type(node).__name__}"
+        method_name = f'_execute_{type(node).__name__}'
         method = getattr(self, method_name, self._execute_default)
         return method(node)
 
@@ -302,7 +481,7 @@ class Interpreter:
             name=node.name.lower(),
             parameters=node.parameters,
             body=node.body,
-            is_function=False,
+            is_function=False
         )
         self._procedures[node.name.lower()] = proc
 
@@ -312,40 +491,44 @@ class Interpreter:
             name=node.name.lower(),
             parameters=node.parameters,
             body=node.body,
-            is_function=True,
+            is_function=True
         )
         self._procedures[node.name.lower()] = proc
 
     def _call_procedure(self, name: str, arguments: List[ASTNode]) -> Any:
         """Call a user-defined procedure or built-in function."""
         proc_name = name.lower()
-
+        
         # Check for user-defined procedure
         if proc_name in self._procedures:
             proc = self._procedures[proc_name]
             return self._execute_procedure(proc, arguments)
-
+        
         # Check for built-in function
         if proc_name in self._builtins:
             args = [self._evaluate(arg) for arg in arguments]
             return self._builtins[proc_name](*args)
-
+        
         raise VBScriptError(f"Unknown procedure: {name}")
 
     def _execute_procedure(self, proc: Procedure, arguments: List[ASTNode]) -> Any:
         """Execute a user-defined procedure with proper scoping."""
         # Create a new environment for the procedure
         old_env = self._environment
+        old_error_mode = self._error_mode
         proc_env = Environment(parent=old_env)
         self._environment = proc_env
-
+        # Reset error mode to default at procedure entry
+        self._error_mode = ErrorHandlingMode.DEFAULT
+        self._err.Clear()
+        
         try:
             # Bind parameters
             arg_values = [self._evaluate(arg) for arg in arguments]
-
+            
             # Store references for ByRef parameters
             byref_bindings: Dict[str, tuple] = {}  # name -> (old_env, var_name)
-
+            
             for i, param in enumerate(proc.parameters):
                 if i < len(arg_values):
                     if param.is_byref:
@@ -366,38 +549,39 @@ class Interpreter:
                 else:
                     # No argument provided, use Empty
                     proc_env.define(param.name, EMPTY)
-
+            
             # For functions, initialize return value variable
             if proc.is_function:
                 proc_env.define(proc.name, EMPTY)
-
+            
             # Execute the procedure body
             try:
                 for stmt in proc.body:
-                    self._execute(stmt)
+                    self._execute_with_error_handling(stmt)
             except ExitProcedureException as e:
                 # Exit Sub/Function was called
                 if proc.is_function:
                     return proc_env.get(proc.name)
                 return e.return_value
-
+            
             # Handle Exit For/Do that propagated up
             except ExitLoopException:
                 raise VBScriptError("Exit For/Do not valid outside of loops")
-
+            
             # For functions, return the function's return value
             if proc.is_function:
                 return proc_env.get(proc.name)
-
+            
             return EMPTY
-
+            
         finally:
             # Copy ByRef values back to the original scope
             for param_name, (orig_env, orig_var) in byref_bindings.items():
                 orig_env.set(orig_var, proc_env.get(param_name))
-
-            # Restore the original environment
+            
+            # Restore the original environment and error mode
             self._environment = old_env
+            self._error_mode = old_error_mode
 
     def _execute_ExpressionStatement(self, node: ExpressionStatement) -> Any:
         """Execute an expression statement."""
@@ -405,20 +589,39 @@ class Interpreter:
         if isinstance(node.expression, FunctionCall):
             name = node.expression.name.lower()
             if name in self._procedures:
-                return self._call_procedure(
-                    node.expression.name, node.expression.arguments
-                )
-
+                return self._call_procedure(node.expression.name, node.expression.arguments)
+        
         # Check if this is a procedure call (identifier without args)
         if isinstance(node.expression, Identifier):
             name = node.expression.name.lower()
             if name in self._procedures:
                 return self._call_procedure(node.expression.name, [])
-
+        
+        # Check for Err.Clear() or Err.Raise() as MemberAccess (with parentheses)
+        if isinstance(node.expression, MemberAccess):
+            if isinstance(node.expression.object, Identifier):
+                if node.expression.object.name.lower() == 'err':
+                    method = node.expression.member.lower()
+                    if method == 'clear':
+                        self._err.Clear()
+                        return None
+                    elif method == 'raise':
+                        # Err.Raise without arguments - raise generic error
+                        self._err.Raise(0)
+                        return None
+        
         # Check if this is a method call that should invoke a procedure
         if isinstance(node.expression, MethodCall):
+            # Handle Err.Raise specially (Err.Clear is handled in interpret())
+            if isinstance(node.expression.object, Identifier):
+                if node.expression.object.name.lower() == 'err':
+                    method = node.expression.method.lower()
+                    if method == 'raise':
+                        args = [self._evaluate(arg) for arg in node.expression.arguments]
+                        self._err.Raise(*args) if args else self._err.Raise(0)
+                        return None
             return self._evaluate(node.expression)
-
+        
         return self._evaluate(node.expression)
 
     def _execute_IfStatement(self, node: IfStatement) -> Any:
@@ -426,43 +629,43 @@ class Interpreter:
         condition = self._evaluate(node.condition)
         if self._to_boolean(condition):
             for stmt in node.then_body:
-                self._execute(stmt)
+                self._execute_with_error_handling(stmt)
             return None
-
+        
         # Check ElseIf clauses
         for elseif in node.elseif_clauses:
             condition = self._evaluate(elseif.condition)
             if self._to_boolean(condition):
                 for stmt in elseif.body:
-                    self._execute(stmt)
+                    self._execute_with_error_handling(stmt)
                 return None
-
+        
         # Execute Else clause if present
         if node.else_clause:
             for stmt in node.else_clause.body:
-                self._execute(stmt)
-
+                self._execute_with_error_handling(stmt)
+        
         return None
 
     def _execute_ForStatement(self, node: ForStatement) -> Any:
         """Execute a For...Next statement."""
         start_val = self._to_number(self._evaluate(node.start))
         end_val = self._to_number(self._evaluate(node.end))
-
+        
         # Determine step value
         if node.step:
             step_val = self._to_number(self._evaluate(node.step))
         else:
             # Default step is 1, or -1 if start > end
             step_val = 1 if start_val <= end_val else 1
-
+        
         # Set the loop variable to start value
         self._environment.set(node.variable, start_val)
-
+        
         try:
             while True:
                 current_val = self._to_number(self._environment.get(node.variable))
-
+                
                 # Check loop condition
                 if step_val > 0:
                     if current_val > end_val:
@@ -470,23 +673,23 @@ class Interpreter:
                 else:
                     if current_val < end_val:
                         break
-
+                
                 # Execute body
                 try:
                     for stmt in node.body:
-                        self._execute(stmt)
+                        self._execute_with_error_handling(stmt)
                 except ExitLoopException as e:
                     if e.exit_type == ExitType.FOR:
                         return None
                     raise
-
+                
                 # Increment loop variable
                 self._environment.set(node.variable, current_val + step_val)
         except ExitLoopException as e:
             if e.exit_type == ExitType.FOR:
                 return None
             raise
-
+        
         return None
 
     def _execute_WhileStatement(self, node: WhileStatement) -> Any:
@@ -495,14 +698,14 @@ class Interpreter:
             while self._to_boolean(self._evaluate(node.condition)):
                 try:
                     for stmt in node.body:
-                        self._execute(stmt)
+                        self._execute_with_error_handling(stmt)
                 except ExitLoopException as e:
                     if e.exit_type == ExitType.DO:
                         raise VBScriptError("Exit Do not valid in While loop")
                     return None
         except ExitLoopException as e:
             raise VBScriptError("Exit Do not valid in While loop")
-
+        
         return None
 
     def _execute_DoLoopStatement(self, node: DoLoopStatement) -> Any:
@@ -511,30 +714,26 @@ class Interpreter:
             while True:
                 # Check pre-condition (Do While/Until)
                 if node.pre_condition:
-                    cond_result = self._to_boolean(
-                        self._evaluate(node.pre_condition.condition)
-                    )
+                    cond_result = self._to_boolean(self._evaluate(node.pre_condition.condition))
                     if node.pre_condition.condition_type == LoopConditionType.WHILE:
                         if not cond_result:
                             break
                     else:  # UNTIL
                         if cond_result:
                             break
-
+                
                 # Execute body
                 try:
                     for stmt in node.body:
-                        self._execute(stmt)
+                        self._execute_with_error_handling(stmt)
                 except ExitLoopException as e:
                     if e.exit_type == ExitType.DO:
                         return None
                     raise
-
+                
                 # Check post-condition (Loop While/Until)
                 if node.post_condition:
-                    cond_result = self._to_boolean(
-                        self._evaluate(node.post_condition.condition)
-                    )
+                    cond_result = self._to_boolean(self._evaluate(node.post_condition.condition))
                     if node.post_condition.condition_type == LoopConditionType.WHILE:
                         if not cond_result:
                             break
@@ -550,7 +749,7 @@ class Interpreter:
             if e.exit_type == ExitType.DO:
                 return None
             raise
-
+        
         return None
 
     def _execute_ExitStatement(self, node: ExitStatement) -> None:
@@ -560,9 +759,22 @@ class Interpreter:
         else:
             raise ExitLoopException(node.exit_type)
 
+    def _execute_OnErrorResumeNextStatement(self, node: OnErrorResumeNextStatement) -> None:
+        """Execute On Error Resume Next statement."""
+        self._error_mode = ErrorHandlingMode.RESUME_NEXT
+
+    def _execute_OnErrorGoToStatement(self, node: OnErrorGoToStatement) -> None:
+        """Execute On Error GoTo statement."""
+        if node.label == 0:
+            # On Error GoTo 0 - reset to default error handling
+            self._error_mode = ErrorHandlingMode.DEFAULT
+        else:
+            # On Error GoTo label - set goto mode (line number not fully supported)
+            self._error_mode = ErrorHandlingMode.GOTO
+
     def _evaluate(self, node: ASTNode) -> Any:
         """Evaluate an expression node."""
-        method_name = f"_evaluate_{type(node).__name__}"
+        method_name = f'_evaluate_{type(node).__name__}'
         method = getattr(self, method_name, self._evaluate_default)
         return method(node)
 
@@ -597,13 +809,13 @@ class Interpreter:
     def _evaluate_Identifier(self, node: Identifier) -> Any:
         """Evaluate an identifier."""
         name = node.name.lower()
-
+        
         # Check if this is a function call (function name without parentheses)
         if name in self._procedures:
             proc = self._procedures[name]
             if proc.is_function:
                 return self._execute_procedure(proc, [])
-
+        
         return self._environment.get(node.name)
 
     def _evaluate_BinaryExpression(self, node: BinaryExpression) -> Any:
@@ -626,48 +838,62 @@ class Interpreter:
     def _evaluate_MemberAccess(self, node: MemberAccess) -> Any:
         """Evaluate member access (e.g., WScript.Echo)."""
         obj = self._evaluate(node.object)
-
+        
         if obj is None or isinstance(obj, VBScriptNothing):
             raise VBScriptError(f"Object required: {node.member}")
-
+        
         # Handle WScript object
         if isinstance(obj, WScriptObject):
             attr_name = node.member.lower()
-            if attr_name == "echo":
-                return getattr(obj, "Echo")
-            elif attr_name == "quit":
-                return getattr(obj, "Quit")
+            if attr_name == 'echo':
+                return getattr(obj, 'Echo')
+            elif attr_name == 'quit':
+                return getattr(obj, 'Quit')
             else:
                 raise VBScriptError(f"Unknown member: WScript.{node.member}")
-
+        
+        # Handle Err object with case-insensitive access
+        if isinstance(obj, ErrObject):
+            attr_name = node.member.lower()
+            attr_map = {
+                'number': 'Number',
+                'source': 'Source',
+                'description': 'Description',
+                'helpfile': 'HelpFile',
+                'helpcontext': 'HelpContext',
+                'clear': 'Clear',
+                'raise': 'Raise',
+            }
+            if attr_name in attr_map:
+                return getattr(obj, attr_map[attr_name])
+            raise VBScriptError(f"Unknown member: Err.{node.member}")
+        
         # Handle dictionary-like objects
         if isinstance(obj, dict):
             return obj.get(node.member.lower(), EMPTY)
-
+        
         # Handle objects with attributes
         if hasattr(obj, node.member):
             return getattr(obj, node.member)
-
-        raise VBScriptError(
-            f"Object doesn't support this property or method: {node.member}"
-        )
+        
+        raise VBScriptError(f"Object doesn't support this property or method: {node.member}")
 
     def _evaluate_FunctionCall(self, node: FunctionCall) -> Any:
         """Evaluate a function call."""
         func_name = node.name.lower()
-
+        
         # Check for user-defined procedures first
         if func_name in self._procedures:
             proc = self._procedures[func_name]
             if not proc.is_function:
                 raise VBScriptError(f"Cannot call Sub '{node.name}' as a function")
             return self._execute_procedure(proc, node.arguments)
-
+        
         # Check built-in functions
         if func_name in self._builtins:
             args = [self._evaluate(arg) for arg in node.arguments]
             return self._builtins[func_name](*args)
-
+        
         raise VBScriptError(f"Unknown function: {node.name}")
 
     def _evaluate_MethodCall(self, node: MethodCall) -> Any:
@@ -675,22 +901,20 @@ class Interpreter:
         obj = self._evaluate(node.object)
         method = node.method
         args = [self._evaluate(arg) for arg in node.arguments]
-
+        
         if callable(obj):
             return obj(*args)
-
+        
         # Handle WScript object with case-insensitive method lookup
         if isinstance(obj, WScriptObject):
             method_lower = method.lower()
-            if method_lower == "echo":
+            if method_lower == 'echo':
                 return obj.Echo(*args)
-            elif method_lower == "quit":
+            elif method_lower == 'quit':
                 return obj.Quit(*args)
             else:
-                raise VBScriptError(
-                    f"Object doesn't support this property or method: {method}"
-                )
-
+                raise VBScriptError(f"Object doesn't support this property or method: {method}")
+        
         # Try case-insensitive attribute lookup for other objects
         method_lower = method.lower()
         for attr_name in dir(obj):
@@ -698,20 +922,18 @@ class Interpreter:
                 func = getattr(obj, attr_name)
                 if callable(func):
                     return func(*args)
-
+        
         # Fall back to exact name
         if hasattr(obj, method):
             func = getattr(obj, method)
             if callable(func):
                 return func(*args)
-
+        
         raise VBScriptError(f"Object doesn't support this property or method: {method}")
 
     def _evaluate_NewExpression(self, node: NewExpression) -> Any:
         """Evaluate a New expression."""
-        raise VBScriptError(
-            f"CreateObject should be used instead of New for: {node.class_name}"
-        )
+        raise VBScriptError(f"CreateObject should be used instead of New for: {node.class_name}")
 
     def _apply_binary_op(self, op: BinaryOp, left: Any, right: Any) -> Any:
         """Apply a binary operator."""
@@ -720,14 +942,14 @@ class Interpreter:
             left = 0 if isinstance(right, (int, float)) else ""
         if isinstance(right, VBScriptEmpty):
             right = 0 if isinstance(left, (int, float)) else ""
-
+        
         # Handle Null propagation
         if isinstance(left, VBScriptNull) or isinstance(right, VBScriptNull):
             if op in (BinaryOp.AND, BinaryOp.OR):
                 pass  # Special handling for logical operators
             else:
                 return NULL
-
+        
         if op == BinaryOp.ADD:
             return self._add(left, right)
         elif op == BinaryOp.SUB:
@@ -784,17 +1006,15 @@ class Interpreter:
             left = 0 if isinstance(right, (int, float)) else ""
         if isinstance(right, VBScriptEmpty):
             right = 0 if isinstance(left, (int, float)) else ""
-
+        
         # Handle Nothing comparison
         if op == ComparisonOp.IS:
-            return left is right or (
-                isinstance(left, VBScriptNothing) and isinstance(right, VBScriptNothing)
-            )
-
+            return left is right or (isinstance(left, VBScriptNothing) and isinstance(right, VBScriptNothing))
+        
         # Handle Null comparisons
         if isinstance(left, VBScriptNull) or isinstance(right, VBScriptNull):
             return False  # Null comparisons always return False in VBScript
-
+        
         # Type coercion for comparison
         if isinstance(left, str) or isinstance(right, str):
             left = self._to_string(left)
@@ -809,7 +1029,7 @@ class Interpreter:
             except (ValueError, TypeError):
                 left = self._to_string(left)
                 right = self._to_string(right)
-
+        
         if op == ComparisonOp.EQ:
             return left == right
         elif op == ComparisonOp.NE:
@@ -827,20 +1047,31 @@ class Interpreter:
 
     def _add(self, left: Any, right: Any) -> Any:
         """Handle addition with type coercion."""
+        # In VBScript, + operator behavior depends on operand types:
+        # - Both numbers: arithmetic addition
+        # - Both strings: concatenation
+        # - String and number: try to convert string to number and add
+        #   (raises error if string is not numeric)
+        # Use & operator for guaranteed string concatenation
+        
         if isinstance(left, str) and isinstance(right, str):
+            # Both strings - concatenate
             return left + right
         elif isinstance(left, str):
+            # Left is string, right is not - try to convert string to number
             try:
                 left_num = self._to_number(left)
                 return left_num + self._to_number(right)
             except VBScriptError:
                 raise VBScriptError("Type mismatch")
         elif isinstance(right, str):
+            # Right is string, left is not - try to convert string to number
             try:
                 right_num = self._to_number(right)
                 return self._to_number(left) + right_num
             except VBScriptError:
                 raise VBScriptError("Type mismatch")
+        # Otherwise, numeric addition
         return self._to_number(left) + self._to_number(right)
 
     def _logical_and(self, left: Any, right: Any) -> bool:
@@ -876,9 +1107,7 @@ class Interpreter:
             try:
                 return float(value)
             except ValueError:
-                raise VBScriptError(
-                    f"Type mismatch: cannot convert '{value}' to number"
-                )
+                raise VBScriptError(f"Type mismatch: cannot convert '{value}' to number")
         raise VBScriptError(f"Type mismatch: cannot convert to number")
 
     def _to_string(self, value: Any) -> str:
@@ -938,7 +1167,7 @@ class Interpreter:
 
     def _builtin_left(self, string: str, length: int) -> str:
         """Left function."""
-        return self._to_string(string)[: int(length)]
+        return self._to_string(string)[:int(length)]
 
     def _builtin_right(self, string: str, length: int) -> str:
         """Right function."""
@@ -952,7 +1181,7 @@ class Interpreter:
         start_idx = int(start) - 1  # VBScript is 1-indexed
         if length is None:
             return s[start_idx:]
-        return s[start_idx : start_idx + int(length)]
+        return s[start_idx:start_idx + int(length)]
 
     def _builtin_trim(self, string: str) -> str:
         """Trim function."""
@@ -983,34 +1212,20 @@ class Interpreter:
             start, string1, string2 = args[0], args[1], args[2]
         else:
             return 0
-
+        
         s1 = self._to_string(string1)
         s2 = self._to_string(string2)
-        idx = (
-            s1.lower().find(s2.lower())
-            if len(args) > 2 and isinstance(args[0], int) and args[0] == 1
-            else s1.find(s2)
-        )
+        idx = s1.lower().find(s2.lower()) if len(args) > 2 and isinstance(args[0], int) and args[0] == 1 else s1.find(s2)
         return idx + 1 if idx >= 0 else 0
 
-    def _builtin_replace(
-        self,
-        string: str,
-        find: str,
-        replace_with: str,
-        start: int = 1,
-        count: int = -1,
-        compare: int = 0,
-    ) -> str:
+    def _builtin_replace(self, string: str, find: str, replace_with: str, start: int = 1, count: int = -1, compare: int = 0) -> str:
         """Replace function."""
         s = self._to_string(string)
         f = self._to_string(find)
         r = self._to_string(replace_with)
         return s.replace(f, r, count if count > 0 else -1)
 
-    def _builtin_split(
-        self, string: str, delimiter: str = " ", count: int = -1, compare: int = 0
-    ) -> list:
+    def _builtin_split(self, string: str, delimiter: str = " ", count: int = -1, compare: int = 0) -> list:
         """Split function."""
         s = self._to_string(string)
         d = self._to_string(delimiter)
@@ -1075,14 +1290,7 @@ class Interpreter:
 
     def _builtin_isobject(self, value: Any) -> bool:
         """IsObject function."""
-        return (
-            isinstance(value, (WScriptObject, VBScriptObject))
-            or value is not None
-            and not isinstance(
-                value,
-                (str, int, float, bool, VBScriptEmpty, VBScriptNull, VBScriptNothing),
-            )
-        )
+        return isinstance(value, (WScriptObject, VBScriptObject)) or value is not None and not isinstance(value, (str, int, float, bool, VBScriptEmpty, VBScriptNull, VBScriptNothing))
 
     def _builtin_typename(self, value: Any) -> str:
         """TypeName function."""
@@ -1143,13 +1351,11 @@ class Interpreter:
     def _builtin_rnd(self, number: float = 1) -> float:
         """Rnd function."""
         import random
-
         return random.random()
 
     def _builtin_randomize(self, seed: Any = None) -> None:
         """Randomize statement."""
         import random
-
         if seed is not None:
             random.seed(int(self._to_number(seed)))
         else:
@@ -1170,7 +1376,6 @@ class Interpreter:
 def run(source: str, output_stream=None) -> Any:
     """Parse and execute VBScript source code."""
     from .parser import parse
-
     program = parse(source)
     interpreter = Interpreter(output_stream=output_stream)
     return interpreter.interpret(program)

@@ -22,6 +22,12 @@ A VBScript parser and interpreter written in Python, focused on a practical and 
   - `While ... Wend`
   - `Do While/Until ... Loop` and `Do ... Loop While/Until`
   - `Exit For` and `Exit Do`
+- **Error handling**:
+  - `On Error Resume Next` - continue execution after errors
+  - `On Error GoTo 0` - reset error handling to default
+  - `Err` object with `Number`, `Source`, `Description`, `HelpFile`, `HelpContext` properties
+  - `Err.Clear` - clear error information
+  - `Err.Raise` - raise custom errors
 - **Procedures**:
   - `Sub ... End Sub` and `Function ... End Function`
   - `Call` statements and implicit procedure calls
@@ -163,6 +169,36 @@ run('x = Empty')
 
 # Null - database null value
 run('x = Null')
+```
+
+### Error Handling
+
+```python
+from pybasil import run
+
+# On Error Resume Next - continue after errors
+run("""
+    On Error Resume Next
+    x = 1 / 0
+    WScript.Echo "After error"
+    WScript.Echo Err.Number
+""")
+
+# Err.Raise - raise custom errors
+run("""
+    On Error Resume Next
+    Err.Raise 100, "MyApp", "Custom error message"
+    WScript.Echo Err.Number
+    WScript.Echo Err.Description
+""")
+
+# On Error GoTo 0 - reset error handling
+run("""
+    On Error Resume Next
+    x = 1 / 0
+    On Error GoTo 0
+    y = 1 / 0  ' This will raise an error
+""")
 ```
 
 ## API Reference

@@ -50,6 +50,13 @@ class LoopConditionType(Enum):
     UNTIL = auto()       # Until condition
 
 
+class ErrorHandlingMode(Enum):
+    """Error handling mode for VBScript."""
+    DEFAULT = auto()      # Default - raise errors immediately
+    RESUME_NEXT = auto()  # On Error Resume Next - continue on error
+    GOTO = auto()         # On Error GoTo - jump to label on error
+
+
 @dataclass
 class ASTNode:
     """Base class for all AST nodes."""
@@ -242,6 +249,18 @@ class ExitStatement(ASTNode):
 
 
 @dataclass
+class OnErrorResumeNextStatement(ASTNode):
+    """On Error Resume Next - continue execution after errors."""
+    pass
+
+
+@dataclass
+class OnErrorGoToStatement(ASTNode):
+    """On Error GoTo 0 - reset error handling to default."""
+    label: int  # 0 for resetting to default, or line number for GoTo
+
+
+@dataclass
 class Program(ASTNode):
     statements: List[ASTNode] = field(default_factory=list)
 
@@ -278,4 +297,6 @@ Statement = Union[
     ExitStatement,
     SubStatement,
     FunctionStatement,
+    OnErrorResumeNextStatement,
+    OnErrorGoToStatement,
 ]
