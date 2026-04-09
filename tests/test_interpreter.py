@@ -1668,3 +1668,283 @@ class TestErrorHandling:
         lines = output.getvalue().strip().split("\n")
         assert lines[0] == "11"
         assert lines[1] == "11"
+
+
+class TestSelectCase:
+    """Test Select Case statement."""
+
+    def test_single_value_match(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 2
+            Select Case x
+                Case 1
+                    WScript.Echo "one"
+                Case 2
+                    WScript.Echo "two"
+                Case 3
+                    WScript.Echo "three"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "two"
+
+    def test_no_match_no_else(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 99
+            Select Case x
+                Case 1
+                    WScript.Echo "one"
+                Case 2
+                    WScript.Echo "two"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == ""
+
+    def test_case_else(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 42
+            Select Case x
+                Case 1
+                    WScript.Echo "one"
+                Case Else
+                    WScript.Echo "other"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "other"
+
+    def test_comma_separated_values(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 5
+            Select Case x
+                Case 1, 2, 3
+                    WScript.Echo "small"
+                Case 4, 5, 6
+                    WScript.Echo "medium"
+                Case Else
+                    WScript.Echo "large"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "medium"
+
+    def test_relational_checks_with_true(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim score
+            score = 85
+            Select Case True
+                Case score >= 90
+                    WScript.Echo "A"
+                Case score >= 80
+                    WScript.Echo "B"
+                Case score >= 70
+                    WScript.Echo "C"
+                Case Else
+                    WScript.Echo "F"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "B"
+
+    def test_string_matching(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim fruit
+            fruit = "Banana"
+            Select Case fruit
+                Case "Apple", "Pear"
+                    WScript.Echo "pome"
+                Case "Banana", "Mango"
+                    WScript.Echo "tropical"
+                Case Else
+                    WScript.Echo "unknown"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "tropical"
+
+    def test_select_case_in_sub(self):
+        output = io.StringIO()
+        run(
+            """
+            Sub Classify(n)
+                Select Case True
+                    Case n < 0
+                        WScript.Echo "negative"
+                    Case n = 0
+                        WScript.Echo "zero"
+                    Case n > 0
+                        WScript.Echo "positive"
+                End Select
+            End Sub
+
+            Call Classify(-5)
+            Call Classify(0)
+            Call Classify(42)
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split("\n")
+        assert lines == ["negative", "zero", "positive"]
+
+    def test_select_case_first_match_wins(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 5
+            Select Case True
+                Case x > 0
+                    WScript.Echo "positive"
+                Case x > 3
+                    WScript.Echo "greater than 3"
+                Case x > 1
+                    WScript.Echo "greater than 1"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "positive"
+
+    def test_select_case_with_assignment_in_body(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x, result
+            x = 2
+            Select Case x
+                Case 1
+                    result = "a"
+                Case 2
+                    result = "b"
+                Case 3
+                    result = "c"
+            End Select
+            WScript.Echo result
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "b"
+
+    def test_select_case_multiple_statements_in_body(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 1
+            Select Case x
+                Case 1
+                    WScript.Echo "line1"
+                    WScript.Echo "line2"
+                Case 2
+                    WScript.Echo "other"
+            End Select
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split("\n")
+        assert lines == ["line1", "line2"]
+
+    def test_select_case_string_comma_list_with_grade(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim score, grade
+            score = 85
+            Select Case score
+                Case 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100
+                    grade = "A"
+                Case 80, 81, 82, 83, 84, 85, 86, 87, 88, 89
+                    grade = "B"
+                Case 70, 71, 72, 73, 74, 75, 76, 77, 78, 79
+                    grade = "C"
+                Case Else
+                    grade = "F"
+            End Select
+            WScript.Echo "Score " & score & " = Grade " & grade
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "Score 85 = Grade B"
+
+    def test_select_case_relational_with_else(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim score, grade
+            score = 95
+            Select Case True
+                Case score = 100
+                    grade = "Perfect"
+                Case score >= 90
+                    grade = "Excellent"
+                Case score >= 80
+                    grade = "Good"
+                Case Else
+                    grade = "Keep trying"
+            End Select
+            WScript.Echo "Score " & score & " = " & grade
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "Score 95 = Excellent"
+
+    def test_case_insensitive_select_case(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x
+            x = 1
+            select case x
+                case 1
+                    wscript.echo "matched"
+            end select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "matched"
+
+    def test_nested_select_case(self):
+        output = io.StringIO()
+        run(
+            """
+            Dim x, y
+            x = 1
+            y = 2
+            Select Case x
+                Case 1
+                    Select Case y
+                        Case 1
+                            WScript.Echo "1-1"
+                        Case 2
+                            WScript.Echo "1-2"
+                    End Select
+                Case 2
+                    WScript.Echo "2-x"
+            End Select
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == "1-2"
