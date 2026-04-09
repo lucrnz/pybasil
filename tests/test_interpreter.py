@@ -214,11 +214,12 @@ class TestInterpreterStringOperations:
         assert interpreter._environment.get("x") == "Value: 42"
 
     def test_number_string_addition(self):
-        # In VBScript, + with strings can do concatenation or addition
+        # In VBScript, + with a numeric string and number does arithmetic addition
+        # (the string is converted to a number)
         program = parse('x = "5" + 3')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "53"  # String concatenation
+        assert interpreter._environment.get("x") == 8  # Numeric addition
 
 
 class TestInterpreterComparison:
@@ -602,8 +603,15 @@ class TestInterpreterTypeCoercion:
         program = parse('x = "10" + 5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        # String + number = string concatenation
-        assert interpreter._environment.get("x") == "105"
+        # String + number = numeric addition (string is converted to number)
+        assert interpreter._environment.get("x") == 15
+
+    def test_non_numeric_string_addition_raises_error(self):
+        # Non-numeric string + number should raise type mismatch
+        program = parse('x = "abc" + 5')
+        interpreter = Interpreter()
+        with pytest.raises(VBScriptError, match="Type mismatch"):
+            interpreter.interpret(program)
 
     def test_number_to_string_comparison(self):
         program = parse('x = (5 = "5")')
