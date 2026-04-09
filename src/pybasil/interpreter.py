@@ -23,6 +23,8 @@ from .ast_nodes import (
     FunctionCall,
     MethodCall,
     NewExpression,
+    ArrayAccess,
+    DimVariable,
     DimStatement,
     AssignmentStatement,
     SetStatement,
@@ -31,7 +33,11 @@ from .ast_nodes import (
     IfStatement,
     ElseIfClause,
     ElseClause,
+    CaseClause,
+    CaseElseClause,
+    SelectCaseStatement,
     ForStatement,
+    ForEachStatement,
     WhileStatement,
     DoLoopStatement,
     LoopCondition,
@@ -47,6 +53,8 @@ from .ast_nodes import (
     OnErrorResumeNextStatement,
     OnErrorGoToStatement,
     ErrorHandlingMode,
+    ReDimStatement,
+    EraseStatement,
 )
 
 
@@ -82,6 +90,320 @@ class VBScriptNull:
 NOTHING = VBScriptNothing()
 EMPTY = VBScriptEmpty()
 NULL = VBScriptNull()
+
+
+class VBScriptArray:
+    """VBScript array implementation supporting multi-dimensional arrays."""
+    
+    def __init__(self, dimensions: List[int], is_dynamic: bool = False):
+        """
+        Initialize a VBScript array.
+        
+        Args:
+            dimensions: List of upper bounds for each dimension (0-based)
+                       e.g., [5] for arr(5), [2, 2] for arr(2, 2)
+            is_dynamic: Whether this is a dynamic array (can be ReDim'd)
+        """
+        self._dimensions = dimensions
+        self._is_dynamic = is_dynamic
+        self._is_erased = False
+        
+        # Create the data structure
+        if dimensions:
+            self._data = self._create_array(dimensions)
+        else:
+            self._data = None  # Dynamic array not yet dimensioned
+    
+    def _create_array(self, dimensions: List[int]) -> list:
+        """Recursively create a multi-dimensional array."""
+        if len(dimensions) == 1:
+            # Single dimension - create list with Empty values
+            return [EMPTY for _ in range(dimensions[0] + 1)]
+        else:
+            # Multi-dimensional - create nested lists
+            return [self._create_array(dimensions[1:]) for _ in range(dimensions[0] + 1)]
+    
+    def get_element(self, indices: List[int]) -> Any:
+        """Get an element by indices."""
+        if self._is_erased:
+            raise VBScriptError("Subscript out of range")
+        if self._data is None:
+            raise VBScriptError("Subscript out of range")
+        
+        # Navigate to the element
+        current = self._data
+        for i, idx in enumerate(indices):
+            if not isinstance(current, list):
+                raise VBScriptError("Subscript out of range")
+            if idx < 0 or idx >= len(current):
+                raise VBScriptError("Subscript out of range")
+            current = current[idx]
+        
+        return current
+    
+    def set_element(self, indices: List[int], value: Any) -> None:
+        """Set an element by indices."""
+        if self._is_erased:
+            raise VBScriptError("Subscript out of range")
+        if self._data is None:
+            raise VBScriptError("Subscript out of range")
+        
+        # Navigate to the parent of the element
+        current = self._data
+        for i, idx in enumerate(indices[:-1]):
+            if not isinstance(current, list):
+                raise VBScriptError("Subscript out of range")
+            if idx < 0 or idx >= len(current):
+                raise VBScriptError("Subscript out of range")
+            current = current[idx]
+        
+        # Set the final element
+        final_idx = indices[-1]
+        if not isinstance(current, list):
+            raise VBScriptError("Subscript out of range")
+        if final_idx < 0 or final_idx >= len(current):
+            raise VBScriptError("Subscript out of range")
+        current[final_idx] = value
+    
+    def redim(self, dimensions: List[int], preserve: bool = False) -> None:
+        """Resize the array, optionally preserving existing values."""
+        if not self._is_dynamic:
+            raise VBScriptError("This array is fixed or temporarily locked")
+        
+        old_data = self._data
+        old_dimensions = self._dimensions
+        
+        self._dimensions = dimensions
+        self._data = self._create_array(dimensions)
+        self._is_erased = False
+        
+        if preserve and old_data is not None:
+            # Copy existing values
+            self._copy_data(old_data, old_dimensions, self._data, dimensions)
+    
+    def _copy_data(self, old_data: Any, old_dims: List[int], new_data: Any, new_dims: List[int]) -> None:
+        """Copy data from old array to new array during ReDim Preserve."""
+        if len(old_dims) == 1:
+            # Single dimension - copy elements
+            min_len = min(len(old_data), len(new_data))
+            for i in range(min_len):
+                new_data[i] = old_data[i]
+        else:
+            # Multi-dimensional - recursively copy
+            min_len = min(len(old_data), len(new_data))
+            for i in range(min_len):
+                self._copy_data(old_data[i], old_dims[1:], new_data[i], new_dims[1:])
+    
+    def erase(self) -> None:
+        """Erase the array (deallocate dynamic arrays)."""
+        if self._is_dynamic:
+            self._data = None
+            self._dimensions = []
+            self._is_erased = True
+        else:
+            # Fixed-size array: reset all elements to Empty
+            if self._data:
+                self._reset_array(self._data)
+    
+    def _reset_array(self, data: Any) -> None:
+        """Reset all elements of a fixed array to Empty."""
+        if isinstance(data, list):
+            for i, item in enumerate(data):
+                if isinstance(item, list):
+                    self._reset_array(item)
+                else:
+                    data[i] = EMPTY
+    
+    def ubound(self, dimension: int = 1) -> int:
+        """Get the upper bound of a dimension (1-indexed)."""
+        if self._is_erased or self._data is None:
+            raise VBScriptError("Subscript out of range")
+        if dimension < 1 or dimension > len(self._dimensions):
+            raise VBScriptError("Subscript out of range")
+        return self._dimensions[dimension - 1]
+    
+    def lbound(self, dimension: int = 1) -> int:
+        """Get the lower bound of a dimension (always 0 in VBScript)."""
+        if self._is_erased or self._data is None:
+            raise VBScriptError("Subscript out of range")
+        if dimension < 1 or dimension > len(self._dimensions):
+            raise VBScriptError("Subscript out of range")
+        return 0
+    
+    @property
+    def dimensions(self) -> int:
+        """Return the number of dimensions."""
+        return len(self._dimensions)
+    
+    @property
+    def is_erased(self) -> bool:
+        """Check if the array has been erased."""
+        return self._is_erased
+    
+    def __iter__(self):
+        """Iterate over array elements (for For Each)."""
+        if self._is_erased or self._data is None:
+            return iter([])
+        return self._iterate(self._data)
+    
+    def _iterate(self, data: Any):
+        """Recursively iterate over array elements."""
+        if isinstance(data, list):
+            for item in data:
+                yield from self._iterate(item)
+        else:
+            yield data
+
+
+class _DictItemAccessor:
+    """Helper class for dictionary Item property access."""
+    def __init__(self, dictionary: 'VBScriptDictionary'):
+        self._dict = dictionary
+    
+    def __call__(self, key: Any) -> Any:
+        """Get item by key."""
+        return self._dict.get_item(key)
+
+
+class _DictKeyAccessor:
+    """Helper class for dictionary Key property access."""
+    def __init__(self, dictionary: 'VBScriptDictionary'):
+        self._dict = dictionary
+    
+    def __call__(self, key: Any) -> Any:
+        """Get key by key (returns the normalized key)."""
+        return self._dict.get_key(key)
+
+
+class VBScriptDictionary:
+    """VBScript Scripting.Dictionary implementation."""
+    
+    def __init__(self):
+        self._data: Dict[str, Any] = {}  # Keys are stored lowercase for case-insensitivity
+        self._key_order: List[str] = []  # Preserve insertion order
+        self._compare_mode: int = 0  # 0 = binary (case-sensitive), 1 = text (case-insensitive)
+    
+    def _normalize_key(self, key: Any) -> str:
+        """Convert key to string and normalize based on compare mode."""
+        if isinstance(key, str):
+            if self._compare_mode == 1:  # Text mode - case insensitive
+                return key.lower()
+            return key
+        else:
+            return str(key)
+    
+    @property
+    def Count(self) -> int:
+        """Returns the number of key-item pairs."""
+        return len(self._data)
+    
+    def Add(self, key: Any, item: Any) -> None:
+        """Add a key-item pair to the dictionary."""
+        norm_key = self._normalize_key(key)
+        if norm_key in self._data:
+            raise VBScriptError(f"This key is already associated with an element of this collection")
+        self._data[norm_key] = item
+        self._key_order.append(norm_key)
+    
+    def Exists(self, key: Any) -> bool:
+        """Returns True if the key exists in the dictionary."""
+        norm_key = self._normalize_key(key)
+        return norm_key in self._data
+    
+    def Items(self) -> VBScriptArray:
+        """Returns an array containing all items."""
+        items = [self._data[k] for k in self._key_order]
+        if len(items) == 0:
+            return VBScriptArray([0], is_dynamic=True)
+        arr = VBScriptArray([len(items) - 1], is_dynamic=False)
+        for i, item in enumerate(items):
+            arr.set_element([i], item)
+        return arr
+    
+    def Keys(self) -> VBScriptArray:
+        """Returns an array containing all keys."""
+        keys = []
+        for k in self._key_order:
+            # Find the original key (preserve case)
+            keys.append(k)
+        if len(keys) == 0:
+            return VBScriptArray([0], is_dynamic=True)
+        arr = VBScriptArray([len(keys) - 1], is_dynamic=False)
+        for i, key in enumerate(keys):
+            arr.set_element([i], key)
+        return arr
+    
+    def Remove(self, key: Any) -> None:
+        """Remove a key-item pair from the dictionary."""
+        norm_key = self._normalize_key(key)
+        if norm_key not in self._data:
+            raise VBScriptError(f"This key is not associated with an element of this collection")
+        del self._data[norm_key]
+        self._key_order.remove(norm_key)
+    
+    def RemoveAll(self) -> None:
+        """Remove all key-item pairs from the dictionary."""
+        self._data.clear()
+        self._key_order.clear()
+    
+    @property
+    def CompareMode(self) -> int:
+        """Get or set the comparison mode (0=binary, 1=text)."""
+        return self._compare_mode
+    
+    @CompareMode.setter
+    def CompareMode(self, value: int):
+        if len(self._data) > 0:
+            raise VBScriptError("Invalid procedure call or argument")
+        self._compare_mode = value
+    
+    def get_item(self, key: Any) -> Any:
+        """Get an item by key (for default property access)."""
+        norm_key = self._normalize_key(key)
+        if norm_key not in self._data:
+            # VBScript creates empty entry for non-existent key access
+            self._data[norm_key] = EMPTY
+            self._key_order.append(norm_key)
+            return EMPTY
+        return self._data[norm_key]
+    
+    def set_item(self, key: Any, value: Any) -> None:
+        """Set an item by key (for default property access)."""
+        norm_key = self._normalize_key(key)
+        if norm_key not in self._data:
+            self._key_order.append(norm_key)
+        self._data[norm_key] = value
+    
+    def get_key(self, key: Any) -> Any:
+        """Get the key value (for Key property)."""
+        norm_key = self._normalize_key(key)
+        if norm_key not in self._data:
+            raise VBScriptError(f"This key is not associated with an element of this collection")
+        return norm_key
+    
+    def set_key(self, old_key: Any, new_key: Any) -> None:
+        """Change a key value."""
+        norm_old = self._normalize_key(old_key)
+        norm_new = self._normalize_key(new_key)
+        
+        if norm_old not in self._data:
+            raise VBScriptError(f"This key is not associated with an element of this collection")
+        if norm_new in self._data and norm_new != norm_old:
+            raise VBScriptError(f"This key is already associated with an element of this collection")
+        
+        # Move the item to the new key
+        item = self._data[norm_old]
+        del self._data[norm_old]
+        self._data[norm_new] = item
+        
+        # Update key order
+        idx = self._key_order.index(norm_old)
+        self._key_order[idx] = norm_new
+    
+    def __iter__(self):
+        """Iterate over items (for For Each)."""
+        for key in self._key_order:
+            yield self._data[key]
 
 
 class ErrObject:
@@ -256,6 +578,8 @@ class WScriptObject:
             return ""
         elif isinstance(value, VBScriptNull):
             return "Null"
+        elif isinstance(value, VBScriptArray):
+            return "Variant()"
         elif value is None:
             return "Nothing"
         elif isinstance(value, float):
@@ -331,6 +655,9 @@ class Interpreter:
             'randomize': self._builtin_randomize,
             'createobject': self._builtin_createobject,
             'getobject': self._builtin_getobject,
+            'ubound': self._builtin_ubound,
+            'lbound': self._builtin_lbound,
+            'array': self._builtin_array,
         }
 
     def interpret(self, program: Program) -> Any:
@@ -458,18 +785,141 @@ class Interpreter:
 
     def _execute_DimStatement(self, node: DimStatement) -> None:
         """Execute a Dim statement."""
-        for var_name in node.variables:
-            self._environment.define(var_name, EMPTY)
+        for dim_var in node.variables:
+            if dim_var.dimensions is not None:
+                # Array declaration
+                if len(dim_var.dimensions) == 0:
+                    # Dynamic array: Dim arr()
+                    arr = VBScriptArray([], is_dynamic=True)
+                else:
+                    # Fixed-size array: Dim arr(5) or Dim arr(2, 3)
+                    dims = [int(self._evaluate(d)) for d in dim_var.dimensions]
+                    arr = VBScriptArray(dims, is_dynamic=False)
+                self._environment.define(dim_var.name, arr)
+            else:
+                # Simple variable
+                self._environment.define(dim_var.name, EMPTY)
 
     def _execute_AssignmentStatement(self, node: AssignmentStatement) -> None:
         """Execute an assignment statement."""
         value = self._evaluate(node.expression)
-        self._environment.set(node.variable, value)
+        
+        if node.indices:
+            # Array or dictionary element assignment
+            obj = self._environment.get(node.variable)
+            if isinstance(obj, VBScriptArray):
+                indices = [int(self._evaluate(idx)) for idx in node.indices]
+                obj.set_element(indices, value)
+            elif isinstance(obj, VBScriptDictionary):
+                if len(node.indices) == 1:
+                    key = self._evaluate(node.indices[0])
+                    obj.set_item(key, value)
+                else:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+            else:
+                raise VBScriptError("Type mismatch: expected array or dictionary")
+        else:
+            # Simple variable assignment
+            self._environment.set(node.variable, value)
 
     def _execute_SetStatement(self, node: SetStatement) -> None:
         """Execute a Set statement."""
         value = self._evaluate(node.expression)
-        self._environment.set(node.variable, value)
+        
+        if node.indices:
+            # Array or dictionary element assignment
+            obj = self._environment.get(node.variable)
+            if isinstance(obj, VBScriptArray):
+                indices = [int(self._evaluate(idx)) for idx in node.indices]
+                obj.set_element(indices, value)
+            elif isinstance(obj, VBScriptDictionary):
+                if len(node.indices) == 1:
+                    key = self._evaluate(node.indices[0])
+                    obj.set_item(key, value)
+                else:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+            else:
+                raise VBScriptError("Type mismatch: expected array or dictionary")
+        else:
+            # Simple variable assignment
+            self._environment.set(node.variable, value)
+
+    def _execute_PropertyAssignmentStatement(self, node) -> None:
+        """Execute a property assignment statement like obj.Prop = value or obj.Prop("key") = value."""
+        value = self._evaluate(node.expression)
+        target = node.target
+        
+        if isinstance(target, MemberAccess):
+            # obj.Property = value or obj.Property(args) = value
+            obj = self._evaluate(target.object)
+            
+            if isinstance(obj, VBScriptDictionary):
+                # Handle dictionary property assignment
+                prop_name = target.member.lower()
+                if prop_name == 'item':
+                    # This should be handled by MethodCall, not MemberAccess
+                    # But if we get here, it's a property assignment without args
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                elif prop_name == 'comparemode':
+                    obj.CompareMode = int(value)
+                    return
+                elif prop_name == 'key':
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                else:
+                    raise VBScriptError(f"Object doesn't support this property or method: {target.member}")
+            else:
+                # Try to set the attribute
+                raise VBScriptError(f"Object doesn't support this property or method: {target.member}")
+        
+        elif isinstance(target, MethodCall):
+            # obj.Method(args) = value - this is property assignment with arguments
+            obj = self._evaluate(target.object)
+            
+            if isinstance(obj, VBScriptDictionary):
+                method_name = target.method.lower()
+                if method_name == 'item':
+                    # dict.Item("key") = value
+                    if len(target.arguments) == 1:
+                        key = self._evaluate(target.arguments[0])
+                        obj.set_item(key, value)
+                        return
+                    else:
+                        raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                elif method_name == 'key':
+                    # dict.Key("oldkey") = "newkey" - change a key
+                    if len(target.arguments) == 1:
+                        old_key = self._evaluate(target.arguments[0])
+                        obj.set_key(old_key, value)
+                        return
+                    else:
+                        raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                else:
+                    raise VBScriptError(f"Object doesn't support this property or method: {target.method}")
+            else:
+                raise VBScriptError(f"Object doesn't support this property or method")
+        
+        elif isinstance(target, ArrayAccess):
+            # arr(index) = value or dict("key") = value (default property)
+            obj = self._environment.get(target.name)
+            
+            if isinstance(obj, VBScriptDictionary):
+                # dict("key") = value - default property (Item) assignment
+                if len(target.indices) == 1:
+                    key = self._evaluate(target.indices[0])
+                    obj.set_item(key, value)
+                    return
+                else:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+            elif isinstance(obj, VBScriptArray):
+                # Array element assignment - this should be handled by AssignmentStatement
+                indices = [int(self._evaluate(idx)) for idx in target.indices]
+                obj.set_element(indices, value)
+                return
+            else:
+                raise VBScriptError("Type mismatch: expected array or dictionary")
+        
+        else:
+            raise VBScriptError(f"Invalid assignment target: {type(target).__name__}")
 
     def _execute_CallStatement(self, node: CallStatement) -> Any:
         """Execute a Call statement."""
@@ -647,6 +1097,93 @@ class Interpreter:
         
         return None
 
+    def _execute_SelectCaseStatement(self, node: SelectCaseStatement) -> Any:
+        """Execute a Select Case statement."""
+        # Evaluate the select expression
+        select_value = self._evaluate(node.expression)
+        
+        # Check each Case clause
+        for case_clause in node.case_clauses:
+            # Check if any of the case values match
+            for case_value_node in case_clause.values:
+                case_value = self._evaluate(case_value_node)
+                
+                # VBScript Select Case has two matching modes:
+                # 1. Value matching: Select Case x with Case 1, 2, 3
+                # 2. Expression matching: Select Case True with Case x > 10 (evaluates to True/False)
+                #
+                # When select_value is a boolean (True or False), we compare directly
+                # Otherwise, we use value equality
+                
+                if isinstance(select_value, bool):
+                    # Expression matching mode - compare boolean values
+                    if self._to_boolean(case_value) == select_value:
+                        # Execute the case body
+                        for stmt in case_clause.body:
+                            self._execute_with_error_handling(stmt)
+                        return None
+                else:
+                    # Value matching mode - compare for equality
+                    if self._values_equal(select_value, case_value):
+                        # Execute the case body
+                        for stmt in case_clause.body:
+                            self._execute_with_error_handling(stmt)
+                        return None
+        
+        # Execute Case Else if no match found
+        if node.case_else_clause:
+            for stmt in node.case_else_clause.body:
+                self._execute_with_error_handling(stmt)
+        
+        return None
+    
+    def _values_equal(self, left: Any, right: Any) -> bool:
+        """Check if two values are equal for Select Case comparison."""
+        # Handle Empty values
+        if isinstance(left, VBScriptEmpty) and isinstance(right, VBScriptEmpty):
+            return True
+        if isinstance(left, VBScriptEmpty):
+            left = 0 if isinstance(right, (int, float)) else ""
+        if isinstance(right, VBScriptEmpty):
+            right = 0 if isinstance(left, (int, float)) else ""
+        
+        # Handle Null - Null only equals Null
+        if isinstance(left, VBScriptNull) and isinstance(right, VBScriptNull):
+            return True
+        if isinstance(left, VBScriptNull) or isinstance(right, VBScriptNull):
+            return False
+        
+        # Handle Nothing
+        if isinstance(left, VBScriptNothing) and isinstance(right, VBScriptNothing):
+            return True
+        
+        # Handle strings (case-insensitive comparison in VBScript)
+        if isinstance(left, str) and isinstance(right, str):
+            return left.lower() == right.lower()
+        
+        # Handle numbers
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return left == right
+        
+        # Handle booleans
+        if isinstance(left, bool) and isinstance(right, bool):
+            return left == right
+        
+        # Mixed type comparison
+        if isinstance(left, str) and isinstance(right, (int, float)):
+            try:
+                return float(left) == right
+            except ValueError:
+                return False
+        if isinstance(left, (int, float)) and isinstance(right, str):
+            try:
+                return left == float(right)
+            except ValueError:
+                return False
+        
+        # Default comparison
+        return left == right
+
     def _execute_ForStatement(self, node: ForStatement) -> Any:
         """Execute a For...Next statement."""
         start_val = self._to_number(self._evaluate(node.start))
@@ -685,6 +1222,44 @@ class Interpreter:
                 
                 # Increment loop variable
                 self._environment.set(node.variable, current_val + step_val)
+        except ExitLoopException as e:
+            if e.exit_type == ExitType.FOR:
+                return None
+            raise
+        
+        return None
+
+    def _execute_ForEachStatement(self, node: ForEachStatement) -> Any:
+        """Execute a For Each...Next statement."""
+        # Evaluate the collection
+        collection = self._evaluate(node.collection)
+        
+        # Get an iterable from the collection
+        if isinstance(collection, VBScriptArray):
+            iterable = list(collection)
+        elif isinstance(collection, VBScriptDictionary):
+            iterable = list(collection)  # VBScriptDictionary.__iter__ yields items
+        elif isinstance(collection, list):
+            iterable = collection
+        elif isinstance(collection, str):
+            # Strings are iterable character by character in VBScript
+            iterable = list(collection)
+        else:
+            raise VBScriptError("Object doesn't support this property or method")
+        
+        try:
+            for item in iterable:
+                # Set the loop variable
+                self._environment.set(node.variable, item)
+                
+                # Execute body
+                try:
+                    for stmt in node.body:
+                        self._execute_with_error_handling(stmt)
+                except ExitLoopException as e:
+                    if e.exit_type == ExitType.FOR:
+                        return None
+                    raise
         except ExitLoopException as e:
             if e.exit_type == ExitType.FOR:
                 return None
@@ -771,6 +1346,33 @@ class Interpreter:
         else:
             # On Error GoTo label - set goto mode (line number not fully supported)
             self._error_mode = ErrorHandlingMode.GOTO
+
+    def _execute_ReDimStatement(self, node: ReDimStatement) -> None:
+        """Execute a ReDim statement."""
+        for name, dimensions in node.arrays:
+            arr = self._environment.get(name)
+            
+            # If the variable doesn't exist or is not an array, create a new dynamic array
+            if not isinstance(arr, VBScriptArray):
+                arr = VBScriptArray([], is_dynamic=True)
+                self._environment.set(name, arr)
+            
+            # Check if it's a dynamic array
+            if not arr._is_dynamic:
+                raise VBScriptError("This array is fixed or temporarily locked")
+            
+            # Evaluate dimensions
+            dims = [int(self._evaluate(d)) for d in dimensions]
+            
+            # Resize the array
+            arr.redim(dims, preserve=node.preserve)
+
+    def _execute_EraseStatement(self, node: EraseStatement) -> None:
+        """Execute an Erase statement."""
+        for name in node.arrays:
+            arr = self._environment.get(name)
+            if isinstance(arr, VBScriptArray):
+                arr.erase()
 
     def _evaluate(self, node: ASTNode) -> Any:
         """Evaluate an expression node."""
@@ -868,6 +1470,36 @@ class Interpreter:
                 return getattr(obj, attr_map[attr_name])
             raise VBScriptError(f"Unknown member: Err.{node.member}")
         
+        # Handle VBScriptDictionary
+        if isinstance(obj, VBScriptDictionary):
+            attr_name = node.member.lower()
+            # Properties
+            if attr_name == 'count':
+                return obj.Count
+            elif attr_name == 'comparemode':
+                return obj.CompareMode
+            # Methods - return bound method
+            elif attr_name == 'add':
+                return obj.Add
+            elif attr_name == 'exists':
+                return obj.Exists
+            elif attr_name == 'items':
+                return obj.Items
+            elif attr_name == 'keys':
+                return obj.Keys
+            elif attr_name == 'remove':
+                return obj.Remove
+            elif attr_name == 'removeall':
+                return obj.RemoveAll
+            elif attr_name == 'item':
+                # Item is the default property - return a callable wrapper
+                return _DictItemAccessor(obj)
+            elif attr_name == 'key':
+                # Key property
+                return _DictKeyAccessor(obj)
+            else:
+                raise VBScriptError(f"Object doesn't support this property or method: {node.member}")
+        
         # Handle dictionary-like objects
         if isinstance(obj, dict):
             return obj.get(node.member.lower(), EMPTY)
@@ -896,6 +1528,38 @@ class Interpreter:
         
         raise VBScriptError(f"Unknown function: {node.name}")
 
+    def _evaluate_ArrayAccess(self, node: ArrayAccess) -> Any:
+        """Evaluate an array access expression."""
+        # First check if this is actually an array or a function call
+        var = self._environment.get(node.name)
+        
+        if isinstance(var, VBScriptArray):
+            # Array access
+            indices = [int(self._evaluate(idx)) for idx in node.indices]
+            return var.get_element(indices)
+        elif isinstance(var, VBScriptDictionary):
+            # Dictionary default property access (Item)
+            if len(node.indices) == 1:
+                key = self._evaluate(node.indices[0])
+                return var.get_item(key)
+            else:
+                raise VBScriptError("Wrong number of arguments or invalid property assignment")
+        else:
+            # This might be a function call - check builtins and procedures
+            func_name = node.name.lower()
+            
+            if func_name in self._procedures:
+                proc = self._procedures[func_name]
+                if not proc.is_function:
+                    raise VBScriptError(f"Cannot call Sub '{node.name}' as a function")
+                return self._execute_procedure(proc, node.indices)
+            
+            if func_name in self._builtins:
+                args = [self._evaluate(arg) for arg in node.indices]
+                return self._builtins[func_name](*args)
+            
+            raise VBScriptError(f"Unknown function or array: {node.name}")
+
     def _evaluate_MethodCall(self, node: MethodCall) -> Any:
         """Evaluate a method call."""
         obj = self._evaluate(node.object)
@@ -912,6 +1576,41 @@ class Interpreter:
                 return obj.Echo(*args)
             elif method_lower == 'quit':
                 return obj.Quit(*args)
+            else:
+                raise VBScriptError(f"Object doesn't support this property or method: {method}")
+        
+        # Handle VBScriptDictionary methods
+        if isinstance(obj, VBScriptDictionary):
+            method_lower = method.lower()
+            if method_lower == 'add':
+                if len(args) != 2:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                obj.Add(args[0], args[1])
+                return None
+            elif method_lower == 'exists':
+                if len(args) != 1:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                return obj.Exists(args[0])
+            elif method_lower == 'items':
+                return obj.Items()
+            elif method_lower == 'keys':
+                return obj.Keys()
+            elif method_lower == 'remove':
+                if len(args) != 1:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                obj.Remove(args[0])
+                return None
+            elif method_lower == 'removeall':
+                obj.RemoveAll()
+                return None
+            elif method_lower == 'item':
+                if len(args) != 1:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                return obj.get_item(args[0])
+            elif method_lower == 'key':
+                if len(args) != 1:
+                    raise VBScriptError("Wrong number of arguments or invalid property assignment")
+                return obj.get_key(args[0])
             else:
                 raise VBScriptError(f"Object doesn't support this property or method: {method}")
         
@@ -1274,7 +1973,7 @@ class Interpreter:
 
     def _builtin_isarray(self, value: Any) -> bool:
         """IsArray function."""
-        return isinstance(value, (list, tuple))
+        return isinstance(value, (VBScriptArray, list, tuple))
 
     def _builtin_isdate(self, value: Any) -> bool:
         """IsDate function (simplified)."""
@@ -1300,6 +1999,8 @@ class Interpreter:
             return "Null"
         if isinstance(value, VBScriptNothing):
             return "Nothing"
+        if isinstance(value, VBScriptArray):
+            return "Variant()"
         if isinstance(value, bool):
             return "Boolean"
         if isinstance(value, int):
@@ -1326,6 +2027,8 @@ class Interpreter:
             return 5  # vbDouble
         if isinstance(value, str):
             return 8  # vbString
+        if isinstance(value, (VBScriptArray, list, tuple)):
+            return 8204  # vbArray + vbVariant
         return 12  # vbVariant
 
     def _builtin_abs(self, value: Any) -> float:
@@ -1362,15 +2065,55 @@ class Interpreter:
             random.seed()
 
     def _builtin_createobject(self, class_name: str, server_name: str = None) -> Any:
-        """CreateObject function (simplified)."""
-        # This is a stub - in real VBScript this would create COM objects
-        # For now, return a placeholder object
+        """CreateObject function - creates COM objects (simplified)."""
+        # Handle known object types
+        class_lower = class_name.lower()
+        
+        if class_lower == "scripting.dictionary":
+            return VBScriptDictionary()
+        
+        # For unknown objects, return a placeholder
         return {"_class": class_name}
 
     def _builtin_getobject(self, path_name: str = None, class_name: str = None) -> Any:
         """GetObject function (simplified)."""
         # This is a stub - in real VBScript this would get COM objects
         return {"_path": path_name, "_class": class_name}
+
+    def _builtin_ubound(self, array: Any, dimension: int = 1) -> int:
+        """UBound function - returns the upper bound of an array dimension."""
+        if isinstance(array, VBScriptArray):
+            return array.ubound(dimension)
+        elif isinstance(array, list):
+            if dimension != 1:
+                raise VBScriptError("Subscript out of range")
+            return len(array) - 1
+        else:
+            raise VBScriptError("Type mismatch: UBound requires an array")
+
+    def _builtin_lbound(self, array: Any, dimension: int = 1) -> int:
+        """LBound function - returns the lower bound of an array dimension."""
+        if isinstance(array, VBScriptArray):
+            return array.lbound(dimension)
+        elif isinstance(array, list):
+            if dimension != 1:
+                raise VBScriptError("Subscript out of range")
+            return 0
+        else:
+            raise VBScriptError("Type mismatch: LBound requires an array")
+
+    def _builtin_array(self, *args) -> VBScriptArray:
+        """Array function - creates a variant array from the given values."""
+        if len(args) == 0:
+            # Empty array
+            arr = VBScriptArray([0], is_dynamic=True)
+            return arr
+        
+        # Create array with upper bound = len(args) - 1
+        arr = VBScriptArray([len(args) - 1], is_dynamic=False)
+        for i, val in enumerate(args):
+            arr.set_element([i], val)
+        return arr
 
 
 def run(source: str, output_stream=None) -> Any:

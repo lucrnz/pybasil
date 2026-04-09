@@ -18,10 +18,17 @@ A VBScript parser and interpreter written in Python, focused on a practical and 
   - Logical: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp`
 - **Control flow**:
   - `If ... Then ... ElseIf ... Else ... End If`
+  - `Select Case ... Case ... Case Else ... End Select`
   - `For ... To ... [Step ...] ... Next`
+  - `For Each ... In ... Next`
   - `While ... Wend`
   - `Do While/Until ... Loop` and `Do ... Loop While/Until`
   - `Exit For` and `Exit Do`
+- **Arrays**:
+  - Fixed-size arrays: `Dim arr(5)`
+  - Dynamic arrays: `Dim arr()`, `ReDim arr(5)`, `ReDim Preserve arr(10)`
+  - Multi-dimensional arrays: `Dim matrix(2, 2)`
+  - `UBound`, `LBound`, `Array`, `Erase`
 - **Error handling**:
   - `On Error Resume Next` - continue execution after errors
   - `On Error GoTo 0` - reset error handling to default
