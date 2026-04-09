@@ -144,21 +144,46 @@ class NewExpression(ASTNode):
     class_name: str
 
 
+# Array Access expression
+@dataclass
+class ArrayAccess(ASTNode):
+    """Array element access like arr(i) or matrix(i, j)."""
+    name: str
+    indices: List[ASTNode] = field(default_factory=list)
+
+
+# Dim variable declaration (can be simple or array)
+@dataclass
+class DimVariable(ASTNode):
+    """A variable declaration in a Dim statement."""
+    name: str
+    dimensions: Optional[List[ASTNode]] = None  # None for simple var, [] for dynamic array, [sizes] for fixed
+
+
 # Statements
 @dataclass
 class DimStatement(ASTNode):
-    variables: List[str]
+    variables: List[DimVariable]
 
 
 @dataclass
 class AssignmentStatement(ASTNode):
-    variable: str
-    expression: ASTNode
+    variable: str  # Variable name
+    indices: Optional[List[ASTNode]] = None  # For array assignment: arr(i) = value
+    expression: ASTNode = None
 
 
 @dataclass
 class SetStatement(ASTNode):
-    variable: str
+    variable: str  # Variable name
+    indices: Optional[List[ASTNode]] = None  # For array assignment: Set arr(i) = obj
+    expression: ASTNode = None
+
+
+@dataclass
+class PropertyAssignmentStatement(ASTNode):
+    """Property assignment like obj.Property = value or obj.Property("key") = value."""
+    target: ASTNode  # The expression being assigned to (e.g., MemberAccess or ArrayAccess)
     expression: ASTNode
 
 
@@ -216,12 +241,54 @@ class IfStatement(ASTNode):
 
 
 @dataclass
+class CaseClause(ASTNode):
+    """A Case clause in a Select Case statement."""
+    values: List[ASTNode]  # List of values to match
+    body: List[ASTNode]
+
+
+@dataclass
+class CaseElseClause(ASTNode):
+    """A Case Else clause in a Select Case statement."""
+    body: List[ASTNode]
+
+
+@dataclass
+class SelectCaseStatement(ASTNode):
+    """Select Case expression ... Case ... End Select"""
+    expression: ASTNode
+    case_clauses: List[CaseClause] = field(default_factory=list)
+    case_else_clause: Optional[CaseElseClause] = None
+
+
+@dataclass
 class ForStatement(ASTNode):
     variable: str
     start: ASTNode
     end: ASTNode
     step: Optional[ASTNode] = None
     body: List[ASTNode] = field(default_factory=list)
+
+
+@dataclass
+class ForEachStatement(ASTNode):
+    """For Each item In collection ... Next"""
+    variable: str
+    collection: ASTNode
+    body: List[ASTNode] = field(default_factory=list)
+
+
+@dataclass
+class ReDimStatement(ASTNode):
+    """ReDim [Preserve] name(dims) [, name2(dims2)]*"""
+    preserve: bool
+    arrays: List[tuple]  # List of (name, dimensions) tuples
+
+
+@dataclass
+class EraseStatement(ASTNode):
+    """Erase array1 [, array2]*"""
+    arrays: List[str]
 
 
 @dataclass
@@ -281,6 +348,7 @@ Expression = Union[
     FunctionCall,
     MethodCall,
     NewExpression,
+    ArrayAccess,
 ]
 
 # Type alias for statements
@@ -288,10 +356,13 @@ Statement = Union[
     DimStatement,
     AssignmentStatement,
     SetStatement,
+    PropertyAssignmentStatement,
     CallStatement,
     ExpressionStatement,
     IfStatement,
+    SelectCaseStatement,
     ForStatement,
+    ForEachStatement,
     WhileStatement,
     DoLoopStatement,
     ExitStatement,
@@ -299,4 +370,6 @@ Statement = Union[
     FunctionStatement,
     OnErrorResumeNextStatement,
     OnErrorGoToStatement,
+    ReDimStatement,
+    EraseStatement,
 ]

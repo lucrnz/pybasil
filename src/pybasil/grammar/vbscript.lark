@@ -4,13 +4,16 @@
 // Start rule
 start: statement*
 
-// Statements
+// Statements can be separated by newlines or colons
 statement: dim_statement
          | assignment_statement
          | set_statement
+         | property_assignment_statement
          | expression_statement
          | if_statement
+         | select_case_statement
          | for_statement
+         | for_each_statement
          | do_statement
          | while_statement
          | exit_statement
@@ -18,13 +21,32 @@ statement: dim_statement
          | function_statement
          | call_statement
          | on_error_statement
+         | redim_statement
+         | erase_statement
 
-// Dim statement - can declare single or multiple variables
-dim_statement: DIM_KW identifier ("," identifier)*
+// Statement separator - colon allows multiple statements on one line
+%ignore COLON
 
-// Assignment statements
-assignment_statement: LET_KW? identifier "=" expression
-set_statement: SET_KW identifier "=" expression
+// Dim statement - can declare single or multiple variables (with optional array dimensions)
+dim_statement: DIM_KW dim_var ("," dim_var)*
+
+// Dim variable: either simple identifier or array with dimensions
+dim_var: identifier
+      | identifier "(" dim_dimensions? ")"
+
+// Array dimensions for Dim (empty parens = dynamic, or list of sizes)
+dim_dimensions: dim_size ("," dim_size)*
+dim_size: expression
+
+// Assignment statements - can assign to variable or array element
+// Use direct patterns to avoid reduce/reduce conflict with atom
+assignment_statement: LET_KW? identifier ("(" arg_list ")")? "=" expression
+set_statement: SET_KW identifier ("(" arg_list ")")? "=" expression
+
+// Property assignment: obj.Property = value or obj.Property(args) = value or obj(args) = value
+// This handles dictionary.Item("key") = value and dict("key") = value
+// Must have at least one member access or array access to avoid conflict with assignment_statement
+property_assignment_statement: atom ("." identifier | "(" arg_list ")" | "(" ")")+ "=" expression
 
 // Expression statement (for standalone expressions like WScript.Echo)
 // This handles method calls without parentheses like: WScript.Echo "Hello"
@@ -37,23 +59,37 @@ if_statement: IF_KW expression THEN_KW block elseif_clause* else_clause? END_KW 
 elseif_clause: ELSEIF_KW expression THEN_KW block
 else_clause: ELSE_KW block
 
+// Select Case statement: Select Case expr ... Case values ... [Case Else ...] End Select
+select_case_statement: SELECT_KW CASE_KW expression case_clause* case_else_clause? END_KW SELECT_KW
+case_clause: CASE_KW case_values block
+case_values: expression ("," expression)*
+case_else_clause: CASE_KW ELSE_KW block
+
 // Block of statements (does not include procedure definitions)
 block: block_statement*
 
 // Block statements - same as statement but excludes procedure definitions
 block_statement: dim_statement
          | assignment_statement
+         | property_assignment_statement
          | set_statement
          | expression_statement
          | if_statement
+         | select_case_statement
          | for_statement
+         | for_each_statement
          | do_statement
          | while_statement
          | exit_statement
          | on_error_statement
+         | redim_statement
+         | erase_statement
 
 // For statement: For i = start To end [Step step] ... Next
 for_statement: FOR_KW identifier "=" expression TO_KW expression (STEP_KW expression)? block NEXT_KW
+
+// For Each statement: For Each item In collection ... Next
+for_each_statement: FOR_KW EACH_KW identifier IN_KW expression block NEXT_KW
 
 // While statement: While condition ... Wend
 while_statement: WHILE_KW expression block WEND_KW
@@ -71,6 +107,13 @@ do_statement: DO_KW WHILE_KW expression block LOOP_KW         -> do_while_pretes
 
 // Exit statement: Exit For | Exit Do | Exit Sub | Exit Function
 exit_statement: EXIT_KW (FOR_KW | DO_KW | SUB_KW | FUNCTION_KW)
+
+// ReDim statement: ReDim [Preserve] name(size) [, name2(size2)]*
+redim_statement: REDIM_KW PRESERVE_KW? redim_var ("," redim_var)*
+redim_var: identifier "(" dim_dimensions ")"
+
+// Erase statement: Erase name [, name2]*
+erase_statement: ERASE_KW identifier ("," identifier)*
 
 // Sub procedure: Sub name[(params)] ... End Sub
 sub_statement: SUB_KW identifier ("(" param_list? ")")? block END_KW SUB_KW
@@ -179,6 +222,8 @@ ELSE_KW.2: /else(?![_a-zA-Z0-9])/i
 ELSEIF_KW.2: /elseif(?![_a-zA-Z0-9])/i
 END_KW.2: /end(?![_a-zA-Z0-9])/i
 FOR_KW.2: /for(?![_a-zA-Z0-9])/i
+EACH_KW.2: /each(?![_a-zA-Z0-9])/i
+IN_KW.2: /in(?![_a-zA-Z0-9])/i
 TO_KW.2: /to(?![_a-zA-Z0-9])/i
 STEP_KW.2: /step(?![_a-zA-Z0-9])/i
 NEXT_KW.2: /next(?![_a-zA-Z0-9])/i
@@ -190,6 +235,9 @@ WEND_KW.2: /wend(?![_a-zA-Z0-9])/i
 SELECT_KW.2: /select(?![_a-zA-Z0-9])/i
 CASE_KW.2: /case(?![_a-zA-Z0-9])/i
 EXIT_KW.2: /exit(?![_a-zA-Z0-9])/i
+REDIM_KW.2: /redim(?![_a-zA-Z0-9])/i
+PRESERVE_KW.2: /preserve(?![_a-zA-Z0-9])/i
+ERASE_KW.2: /erase(?![_a-zA-Z0-9])/i
 FUNCTION_KW.2: /function(?![_a-zA-Z0-9])/i
 SUB_KW.2: /sub(?![_a-zA-Z0-9])/i
 CALL_KW.2: /call(?![_a-zA-Z0-9])/i
@@ -228,6 +276,7 @@ MINUS: "-"
 STAR: "*"
 SLASH: "/"
 BACKSLASH: "\\"
+COLON: ":"
 STRING: /"[^"]*"/
 NUMBER: /\d+(\.\d+)?([eE][+-]?\d+)?/
 NAME.1: /[a-zA-Z_][a-zA-Z0-9_]*/

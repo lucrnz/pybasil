@@ -23,15 +23,22 @@ from .ast_nodes import (
     FunctionCall,
     MethodCall,
     NewExpression,
+    ArrayAccess,
+    DimVariable,
     DimStatement,
     AssignmentStatement,
     SetStatement,
+    PropertyAssignmentStatement,
     CallStatement,
     ExpressionStatement,
     IfStatement,
     ElseIfClause,
     ElseClause,
+    CaseClause,
+    CaseElseClause,
+    SelectCaseStatement,
     ForStatement,
+    ForEachStatement,
     WhileStatement,
     DoLoopStatement,
     LoopCondition,
@@ -46,6 +53,8 @@ from .ast_nodes import (
     LoopConditionType,
     OnErrorResumeNextStatement,
     OnErrorGoToStatement,
+    ReDimStatement,
+    EraseStatement,
 )
 
 
@@ -73,40 +82,122 @@ class VBScriptTransformer(Transformer):
         return items[0]
 
     def dim_statement(self, items: List) -> DimStatement:
+        """Transform Dim statement with optional array dimensions."""
+        # items: [DIM_KW, dim_var, ("," dim_var)*]
         variables = []
         for item in items:
-            # Skip keyword tokens
-            if isinstance(item, Token):
-                continue
-            if isinstance(item, Identifier):
-                variables.append(item.name)
-            else:
-                variables.append(str(item))
+            if isinstance(item, DimVariable):
+                variables.append(item)
         return DimStatement(variables=variables)
+    
+    def dim_var(self, items: List) -> DimVariable:
+        """Transform a Dim variable declaration."""
+        # items: [identifier] or [identifier, "(", dim_dimensions?, ")"]
+        name = ""
+        dimensions = None
+        
+        for item in items:
+            if isinstance(item, Identifier):
+                name = item.name
+            elif isinstance(item, list):
+                # dim_dimensions - list of dimension sizes
+                dimensions = item
+            elif item is None:
+                # Empty parens - dynamic array
+                dimensions = []
+        
+        return DimVariable(name=name, dimensions=dimensions)
+    
+    def dim_dimensions(self, items: List) -> List[ASTNode]:
+        """Transform array dimension list."""
+        return items
+    
+    def dim_size(self, items: List) -> ASTNode:
+        """Transform a single dimension size."""
+        return items[0]
 
     def assignment_statement(self, items: List) -> AssignmentStatement:
-        # items: [LET_KW?, identifier, expression]
-        # Skip keyword tokens
-        filtered = [item for item in items if not isinstance(item, Token)]
-        if len(filtered) >= 2:
-            variable, expr = filtered[0], filtered[1]
-        else:
-            variable, expr = filtered[0], items[-1]
-        # Extract variable name from Identifier if needed
-        var_name = variable.name if isinstance(variable, Identifier) else str(variable)
-        return AssignmentStatement(variable=var_name, expression=expr)
-
+        """Transform assignment statement, supporting array element assignment."""
+        # items: [LET_KW?, identifier, ("(" arg_list ")")?, "=", expression]
+        # The optional part is either a list (indices) or None
+        
+        # Filter out the EQUAL token and LET_KW
+        filtered = []
+        for item in items:
+            if isinstance(item, Token):
+                if item.type == 'LET_KW':
+                    continue
+                # Skip the EQUAL token
+                continue
+            filtered.append(item)
+        
+        # Now filtered should be: [identifier, optional indices list, expression]
+        if len(filtered) < 2:
+            return None
+        
+        var_name = None
+        indices = None
+        expr = None
+        
+        # First item should be the identifier (variable name)
+        if isinstance(filtered[0], Identifier):
+            var_name = filtered[0].name
+        
+        # Check if there are indices (array assignment)
+        if len(filtered) >= 3 and isinstance(filtered[1], list):
+            indices = filtered[1]
+            expr = filtered[2]
+        elif len(filtered) >= 2:
+            # No indices, so filtered[1] is the expression
+            expr = filtered[1]
+        
+        return AssignmentStatement(variable=var_name, indices=indices, expression=expr)
+    
     def set_statement(self, items: List) -> SetStatement:
-        # items: [SET_KW, identifier, expression]
-        # Skip keyword tokens
+        """Transform Set statement, supporting array element assignment."""
+        # items: [SET_KW, identifier, ("(" arg_list ")")?, "=", expression]
+        
+        # Filter out the EQUAL token and SET_KW
+        filtered = []
+        for item in items:
+            if isinstance(item, Token):
+                if item.type == 'SET_KW':
+                    continue
+                continue
+            filtered.append(item)
+        
+        if len(filtered) < 2:
+            return None
+        
+        var_name = None
+        indices = None
+        expr = None
+        
+        # First item should be the identifier (variable name)
+        if isinstance(filtered[0], Identifier):
+            var_name = filtered[0].name
+        
+        # Check if there are indices (array assignment)
+        if len(filtered) >= 3 and isinstance(filtered[1], list):
+            indices = filtered[1]
+            expr = filtered[2]
+        elif len(filtered) >= 2:
+            expr = filtered[1]
+        
+        return SetStatement(variable=var_name, indices=indices, expression=expr)
+
+    def property_assignment_statement(self, items: List) -> PropertyAssignmentStatement:
+        """Transform property assignment statement."""
+        # items: [target, "=", expression]
+        # Filter out the EQUAL token
         filtered = [item for item in items if not isinstance(item, Token)]
+        
         if len(filtered) >= 2:
-            variable, expr = filtered[0], filtered[1]
-        else:
-            variable, expr = filtered[0], items[-1]
-        # Extract variable name from Identifier if needed
-        var_name = variable.name if isinstance(variable, Identifier) else str(variable)
-        return SetStatement(variable=var_name, expression=expr)
+            target = filtered[0]
+            expr = filtered[1]
+            return PropertyAssignmentStatement(target=target, expression=expr)
+        
+        return None
 
     def expression_statement(self, items: List) -> ExpressionStatement:
         if len(items) == 1:
@@ -316,7 +407,7 @@ class VBScriptTransformer(Transformer):
         return items[0]
 
     def call_or_access(self, items: List) -> ASTNode:
-        """Handle member access and function calls."""
+        """Handle member access, function calls, and array access."""
         if len(items) == 1:
             return items[0]
         
@@ -328,64 +419,16 @@ class VBScriptTransformer(Transformer):
                 # Member access (e.g., WScript.Echo)
                 result = MemberAccess(object=result, member=item.name)
             elif isinstance(item, list):
-                # Function/method call with arguments
+                # Function/method call or array access with arguments
                 if isinstance(result, Identifier):
-                    result = FunctionCall(name=result.name, arguments=item)
+                    # Could be array access or function call
+                    # We create ArrayAccess and let interpreter decide
+                    result = ArrayAccess(name=result.name, indices=item)
                 elif isinstance(result, MemberAccess):
                     result = MethodCall(object=result.object, method=result.member, arguments=item)
-                else:
-                    # Method call on an expression
-                    result = MethodCall(object=result, method="", arguments=item)
-            elif item is None:
-                # Empty parentheses - function/method call with no arguments
-                if isinstance(result, Identifier):
-                    result = FunctionCall(name=result.name, arguments=[])
-                elif isinstance(result, MemberAccess):
-                    result = MethodCall(object=result.object, method=result.member, arguments=[])
-                else:
-                    result = MethodCall(object=result, method="", arguments=[])
-            i += 1
-        return result
-
-    def _build_call_or_access(self, atom: ASTNode, identifiers: List[Identifier], args: Optional[List[ASTNode]]) -> ASTNode:
-        """Build a call or access chain from components."""
-        result = atom
-        
-        # Process member accesses
-        for identifier in identifiers:
-            # For the first member access, use the atom directly as object
-            # For subsequent ones, use the previous result
-            result = MemberAccess(object=result, member=identifier.name)
-        
-        # Process function/method call
-        if args is not None:
-            if isinstance(result, Identifier):
-                result = FunctionCall(name=result.name, arguments=args)
-            elif isinstance(result, MemberAccess):
-                result = MethodCall(object=result.object, method=result.member, arguments=args)
-            else:
-                result = MethodCall(object=result, method="", arguments=args)
-        
-        return result
-
-    def call_or_access(self, items: List) -> ASTNode:
-        """Handle member access and function calls (fallback for old grammar)."""
-        if len(items) == 1:
-            return items[0]
-        
-        result = items[0]
-        i = 1
-        while i < len(items):
-            item = items[i]
-            if isinstance(item, Identifier):
-                # Member access (e.g., WScript.Echo)
-                result = MemberAccess(object=result, member=item.name)
-            elif isinstance(item, list):
-                # Function/method call with arguments
-                if isinstance(result, Identifier):
-                    result = FunctionCall(name=result.name, arguments=item)
-                elif isinstance(result, MemberAccess):
-                    result = MethodCall(object=result.object, method=result.member, arguments=item)
+                elif isinstance(result, ArrayAccess):
+                    # Chained array access like arr(i)(j) - not common but possible
+                    result = ArrayAccess(name=result.name, indices=result.indices + item)
                 else:
                     # Method call on an expression
                     result = MethodCall(object=result, method="", arguments=item)
@@ -459,6 +502,95 @@ class VBScriptTransformer(Transformer):
         body = filtered[0] if filtered else []
         return ElseClause(body=body if isinstance(body, list) else [])
 
+    def select_case_statement(self, items: List) -> SelectCaseStatement:
+        """Transform Select Case statement."""
+        # items: [SELECT_KW, CASE_KW, expression, case_clause*, case_else_clause?, END_KW, SELECT_KW]
+        filtered = [item for item in items if not isinstance(item, Token)]
+        
+        expression = filtered[0] if filtered else None
+        case_clauses = []
+        case_else_clause = None
+        
+        for item in filtered[1:]:
+            if isinstance(item, CaseClause):
+                case_clauses.append(item)
+            elif isinstance(item, CaseElseClause):
+                case_else_clause = item
+        
+        return SelectCaseStatement(
+            expression=expression,
+            case_clauses=case_clauses,
+            case_else_clause=case_else_clause
+        )
+    
+    def case_clause(self, items: List) -> CaseClause:
+        """Transform a Case clause."""
+        # items: [CASE_KW, case_values (list), block (list)]
+        # case_values returns a list of expressions
+        # block returns a list of statements
+        
+        values = []
+        body = []
+        
+        # Expression types that indicate this is a value, not a statement
+        expression_types = (
+            NumberLiteral, StringLiteral, BooleanLiteral,
+            NothingLiteral, EmptyLiteral, NullLiteral,
+            Identifier, BinaryExpression, UnaryExpression,
+            ComparisonExpression, MemberAccess, FunctionCall,
+            MethodCall, NewExpression, ArrayAccess
+        )
+        
+        # Statement types that indicate this is the body
+        statement_types = (
+            ExpressionStatement, DimStatement, IfStatement, 
+            SelectCaseStatement, ForStatement, ForEachStatement, 
+            WhileStatement, DoLoopStatement, ExitStatement,
+            SubStatement, FunctionStatement, CallStatement,
+            OnErrorResumeNextStatement, OnErrorGoToStatement,
+            ReDimStatement, EraseStatement, AssignmentStatement, SetStatement
+        )
+        
+        for item in items:
+            if isinstance(item, Token):
+                continue  # Skip CASE_KW
+            elif isinstance(item, list):
+                # Check if this is the body or values
+                if item and isinstance(item[0], statement_types):
+                    # This is the body
+                    body = item
+                elif item and isinstance(item[0], expression_types):
+                    # This is the values list
+                    values = item
+                elif not item:
+                    # Empty list - could be either, skip
+                    pass
+                else:
+                    # Default: if first item looks like a statement, it's body
+                    # Otherwise, it's values
+                    if item and hasattr(item[0], '__class__'):
+                        first_type = type(item[0]).__name__
+                        if 'Statement' in first_type:
+                            body = item
+                        else:
+                            values = item
+            elif isinstance(item, ASTNode):
+                # Single expression value
+                values = [item]
+        
+        return CaseClause(values=values, body=body)
+    
+    def case_values(self, items: List) -> List[ASTNode]:
+        """Transform case values list."""
+        return items
+    
+    def case_else_clause(self, items: List) -> CaseElseClause:
+        """Transform Case Else clause."""
+        # items: [CASE_KW, ELSE_KW, block]
+        filtered = [item for item in items if not isinstance(item, Token)]
+        body = filtered[0] if filtered else []
+        return CaseElseClause(body=body if isinstance(body, list) else [])
+
     def for_statement(self, items: List) -> ForStatement:
         """Transform for statement."""
         # items: [FOR_KW, identifier, "=", expression, TO_KW, expression, (STEP_KW, expression)?, block, NEXT_KW]
@@ -486,6 +618,26 @@ class VBScriptTransformer(Transformer):
             start=start,
             end=end,
             step=step,
+            body=body
+        )
+    
+    def for_each_statement(self, items: List) -> ForEachStatement:
+        """Transform For Each statement."""
+        # items: [FOR_KW, EACH_KW, identifier, IN_KW, expression, block, NEXT_KW]
+        filtered = [item for item in items if not isinstance(item, Token)]
+        
+        variable = filtered[0]
+        if isinstance(variable, Identifier):
+            var_name = variable.name
+        else:
+            var_name = str(variable)
+        
+        collection = filtered[1] if len(filtered) > 1 else None
+        body = filtered[2] if len(filtered) > 2 and isinstance(filtered[2], list) else []
+        
+        return ForEachStatement(
+            variable=var_name,
+            collection=collection,
             body=body
         )
 
@@ -572,6 +724,44 @@ class VBScriptTransformer(Transformer):
         
         # Default to Exit For if we can't determine
         return ExitStatement(exit_type=ExitType.FOR)
+    
+    def redim_statement(self, items: List) -> ReDimStatement:
+        """Transform ReDim statement."""
+        # items: [REDIM_KW, PRESERVE_KW?, redim_var, ("," redim_var)*]
+        preserve = False
+        arrays = []
+        
+        for item in items:
+            if isinstance(item, Token):
+                if item.type == 'PRESERVE_KW':
+                    preserve = True
+            elif isinstance(item, tuple):
+                arrays.append(item)
+        
+        return ReDimStatement(preserve=preserve, arrays=arrays)
+    
+    def redim_var(self, items: List) -> tuple:
+        """Transform a ReDim variable declaration."""
+        # items: [identifier, "(", dim_dimensions, ")"]
+        name = ""
+        dimensions = []
+        
+        for item in items:
+            if isinstance(item, Identifier):
+                name = item.name
+            elif isinstance(item, list):
+                dimensions = item
+        
+        return (name, dimensions)
+    
+    def erase_statement(self, items: List) -> EraseStatement:
+        """Transform Erase statement."""
+        # items: [ERASE_KW, identifier, ("," identifier)*]
+        arrays = []
+        for item in items:
+            if isinstance(item, Identifier):
+                arrays.append(item.name)
+        return EraseStatement(arrays=arrays)
 
     # Procedure transformers
     def block_statement(self, items: List) -> ASTNode:
