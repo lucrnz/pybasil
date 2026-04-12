@@ -10,7 +10,7 @@ A VBScript parser and interpreter written in Python, focused on a practical and 
   - Implicit variable creation is supported (`Empty` default)
   - `Dim` declarations (single and multiple variables)
   - Literals: numbers (including scientific notation), strings, booleans, `Nothing`, `Empty`, `Null`
-- **Statements**: `Dim`, assignments (`Let` optional), `Set`, `Call`, and expression statements (for things like `WScript.Echo`)
+- **Statements**: `Dim`, assignments (`Let` optional), `Set`, `Call`, property assignments (`obj.Prop = value`), and expression statements (for things like `WScript.Echo`)
 - **Operators**:
   - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
   - String: `&`
@@ -22,7 +22,7 @@ A VBScript parser and interpreter written in Python, focused on a practical and 
   - `For ... To ... [Step ...] ... Next`
   - `For Each ... In ... Next`
   - `While ... Wend`
-  - `Do While/Until ... Loop` and `Do ... Loop While/Until`
+  - `Do While/Until ... Loop`, `Do ... Loop While/Until`, and `Do ... Loop`
   - `Exit For` and `Exit Do`
 - **Arrays**:
   - Fixed-size arrays: `Dim arr(5)`
@@ -47,6 +47,8 @@ A VBScript parser and interpreter written in Python, focused on a practical and 
   - Conversion/type helpers (`CStr`, `CInt`, `CLng`, `CDbl`, `CBool`, `CDate`, `IsNumeric`, `IsArray`, `IsDate`, `IsEmpty`, `IsNull`, `IsObject`, `TypeName`, `VarType`)
   - Math/random helpers (`Abs`, `Sqr`, `Int`, `Fix`, `Round`, `Rnd`, `Randomize`)
   - `MsgBox`, `InputBox`, `CreateObject`, `GetObject` (simplified behavior)
+- **Objects**:
+  - `Scripting.Dictionary` via `CreateObject` (`Add`, `Exists`, `Items`, `Keys`, `Remove`, `RemoveAll`, `Item`, `Key`, `Count`, `CompareMode`)
 - **Comments**: single quote (`'`) and `Rem`
 - **CLI**: execute code from files, stdin, or `-c/--code`
 
