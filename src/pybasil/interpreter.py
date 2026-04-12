@@ -1694,6 +1694,8 @@ class Interpreter:
         elif op == UnaryOp.POS:
             return self._to_number(operand)
         elif op == UnaryOp.NOT:
+            if isinstance(operand, VBScriptNull):
+                return NULL
             return not self._to_boolean(operand)
         else:
             raise VBScriptError(f"Unknown unary operator: {op}")
@@ -1710,9 +1712,9 @@ class Interpreter:
         if op == ComparisonOp.IS:
             return left is right or (isinstance(left, VBScriptNothing) and isinstance(right, VBScriptNothing))
         
-        # Handle Null comparisons
+        # Handle Null comparisons - three-valued logic: any comparison with Null returns Null
         if isinstance(left, VBScriptNull) or isinstance(right, VBScriptNull):
-            return False  # Null comparisons always return False in VBScript
+            return NULL
         
         # Type coercion for comparison
         if isinstance(left, str) or isinstance(right, str):
@@ -1773,15 +1775,27 @@ class Interpreter:
         # Otherwise, numeric addition
         return self._to_number(left) + self._to_number(right)
 
-    def _logical_and(self, left: Any, right: Any) -> bool:
-        """Logical AND with VBScript semantics."""
+    def _logical_and(self, left: Any, right: Any) -> Any:
+        """Logical AND with VBScript semantics including Null propagation."""
+        if isinstance(left, VBScriptNull):
+            if isinstance(right, VBScriptNull):
+                return NULL
+            return False if not self._to_boolean(right) else NULL
+        if isinstance(right, VBScriptNull):
+            return False if not self._to_boolean(left) else NULL
         # VBScript uses bitwise AND for numbers
         if isinstance(left, (int, float)) and isinstance(right, (int, float)):
             return bool(int(left) & int(right))
         return self._to_boolean(left) and self._to_boolean(right)
 
-    def _logical_or(self, left: Any, right: Any) -> bool:
-        """Logical OR with VBScript semantics."""
+    def _logical_or(self, left: Any, right: Any) -> Any:
+        """Logical OR with VBScript semantics including Null propagation."""
+        if isinstance(left, VBScriptNull):
+            if isinstance(right, VBScriptNull):
+                return NULL
+            return True if self._to_boolean(right) else NULL
+        if isinstance(right, VBScriptNull):
+            return True if self._to_boolean(left) else NULL
         # VBScript uses bitwise OR for numbers
         if isinstance(left, (int, float)) and isinstance(right, (int, float)):
             return bool(int(left) | int(right))
@@ -1941,11 +1955,11 @@ class Interpreter:
 
     def _builtin_cint(self, value: Any) -> int:
         """CInt function."""
-        return int(self._to_number(value))
+        return round(self._to_number(value))
 
     def _builtin_clng(self, value: Any) -> int:
         """CLng function."""
-        return int(self._to_number(value))
+        return round(self._to_number(value))
 
     def _builtin_cdbl(self, value: Any) -> float:
         """CDbl function."""

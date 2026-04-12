@@ -463,7 +463,7 @@ class TestInterpreterBuiltins:
         program = parse("x = CInt(3.7)")
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3
+        assert interpreter._environment.get("x") == 4
 
     def test_cdbl(self):
         program = parse('x = CDbl("3.14")')
@@ -569,8 +569,7 @@ class TestInterpreterEdgeCases:
         program = parse("x = (Null = Null)")
         interpreter = Interpreter()
         interpreter.interpret(program)
-        # Null comparisons return False in VBScript
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get("x") == NULL
 
     def test_multiple_statements(self):
         program = parse("""
