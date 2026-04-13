@@ -948,16 +948,36 @@ class VBScriptParser:
 
     def _preprocess(self, source: str) -> str:
         """Pre-process VBScript source to handle REM comments."""
-        # Convert REM comments to single-quote comments
-        # REM must be followed by whitespace or be at end of line
         lines = source.split('\n')
         processed_lines = []
         for line in lines:
-            # Find REM keyword (case-insensitive) followed by whitespace
-            # and replace with single quote comment
-            new_line = re.sub(r'\b[Rr][Ee][Mm](?=\s|$)', "'", line)
+            new_line = self._replace_rem_outside_strings(line)
             processed_lines.append(new_line)
         return '\n'.join(processed_lines)
+
+    @staticmethod
+    def _replace_rem_outside_strings(line: str) -> str:
+        """Replace REM keywords with ' only when they are outside string literals."""
+        result: list[str] = []
+        i = 0
+        while i < len(line):
+            if line[i] == '"':
+                # Skip over the entire string literal
+                j = i + 1
+                while j < len(line) and line[j] != '"':
+                    j += 1
+                # Include the closing quote (if present)
+                result.append(line[i:j + 1])
+                i = j + 1
+            else:
+                m = re.match(r'\b[Rr][Ee][Mm](?=\s|$)', line[i:])
+                if m:
+                    result.append("'")
+                    i += m.end()
+                else:
+                    result.append(line[i])
+                    i += 1
+        return ''.join(result)
 
     def parse(self, source: str) -> Program:
         """Parse VBScript source code and return an AST."""
