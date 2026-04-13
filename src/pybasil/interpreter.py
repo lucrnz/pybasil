@@ -1941,12 +1941,17 @@ class Interpreter:
 
     def _builtin_left(self, string: str, length: int) -> str:
         """Left function."""
-        return self._to_string(string)[: int(length)]
+        n = int(length)
+        if n < 0:
+            raise VBScriptError('Invalid procedure call or argument')
+        return self._to_string(string)[:n]
 
     def _builtin_right(self, string: str, length: int) -> str:
         """Right function."""
         s = self._to_string(string)
         n = int(length)
+        if n < 0:
+            raise VBScriptError('Invalid procedure call or argument')
         return s[-n:] if n > 0 else ''
 
     def _builtin_mid(self, string: str, start: int, length: int = None) -> str:
