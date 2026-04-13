@@ -8,6 +8,8 @@ Run parser tests: `uv run pytest tests/test_parser.py -q`
 Run interpreter tests: `uv run pytest tests/test_interpreter.py -q`
 Run targeted tests: `uv run pytest tests/test_interpreter.py -k "<pattern>" -q`
 Run CLI locally: `uv run pybasil -c 'WScript.Echo 2 + 2'`
+Run linter: `uv run ruff check`
+Run linter (auto-fix): `uv run ruff check --fix`
 
 ## Always
 Keep behavior aligned with existing VBScript semantics covered by tests
