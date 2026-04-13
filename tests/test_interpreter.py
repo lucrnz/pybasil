@@ -655,6 +655,18 @@ class TestInterpreterBuiltins:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 3
 
+    def test_mid_start_zero_raises_error(self):
+        program = parse('x = Mid("Hello", 0, 3)')
+        interpreter = Interpreter()
+        with pytest.raises(VBScriptError, match='Invalid procedure call or argument'):
+            interpreter.interpret(program)
+
+    def test_mid_start_negative_raises_error(self):
+        program = parse('x = Mid("Hello", -1, 3)')
+        interpreter = Interpreter()
+        with pytest.raises(VBScriptError, match='Invalid procedure call or argument'):
+            interpreter.interpret(program)
+
     def test_split_array_access(self):
         code = '''Dim arr
 arr = Split("a,b,c", ",")

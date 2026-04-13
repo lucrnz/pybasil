@@ -1952,7 +1952,10 @@ class Interpreter:
     def _builtin_mid(self, string: str, start: int, length: int = None) -> str:
         """Mid function."""
         s = self._to_string(string)
-        start_idx = int(start) - 1  # VBScript is 1-indexed
+        start_val = int(start)
+        if start_val < 1:
+            raise VBScriptError('Invalid procedure call or argument')
+        start_idx = start_val - 1  # VBScript is 1-indexed
         if length is None:
             return s[start_idx:]
         return s[start_idx : start_idx + int(length)]
