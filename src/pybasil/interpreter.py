@@ -420,9 +420,9 @@ class VBScriptDictionary:
         self._key_order[idx] = norm_new
 
     def __iter__(self):
-        """Iterate over items (for For Each)."""
+        """Iterate over keys (for For Each)."""
         for key in self._key_order:
-            yield self._data[key]
+            yield key
 
 
 class ErrObject:

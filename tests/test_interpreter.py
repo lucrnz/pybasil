@@ -935,6 +935,42 @@ class TestInterpreterForStatement:
         assert output.getvalue().strip() == '3'
 
 
+class TestInterpreterForEachDictionary:
+    """Test For Each over Scripting.Dictionary."""
+
+    def test_for_each_dictionary_yields_keys(self):
+        output = io.StringIO()
+        run(
+            """
+            Set d = CreateObject("Scripting.Dictionary")
+            d.Add "a", 100
+            d.Add "b", 200
+            For Each k In d
+                WScript.Echo k
+            Next
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['a', 'b']
+
+    def test_for_each_dictionary_access_values_via_item(self):
+        output = io.StringIO()
+        run(
+            """
+            Set d = CreateObject("Scripting.Dictionary")
+            d.Add "x", 42
+            d.Add "y", 99
+            For Each k In d
+                WScript.Echo d.Item(k)
+            Next
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['42', '99']
+
+
 class TestInterpreterWhileStatement:
     """Test While...Wend statements."""
 
