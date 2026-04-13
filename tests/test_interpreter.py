@@ -1094,6 +1094,19 @@ class TestInterpreterWhileStatement:
         lines = output.getvalue().strip().split('\n')
         assert lines == ['0,0', '0,1', '1,0', '1,1']
 
+    def test_exit_for_in_while_raises_error(self):
+        program = parse("""
+            Dim count
+            count = 0
+            While count < 5
+                count = count + 1
+                Exit For
+            Wend
+        """)
+        interpreter = Interpreter()
+        with pytest.raises(VBScriptError, match='Exit For not valid in While loop'):
+            interpreter.interpret(program)
+
 
 class TestInterpreterDoLoop:
     """Test Do...Loop statements."""

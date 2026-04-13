@@ -1294,9 +1294,15 @@ class Interpreter:
                 except ExitLoopException as e:
                     if e.exit_type == ExitType.DO:
                         raise VBScriptError('Exit Do not valid in While loop')
-                    return None
-        except ExitLoopException:
-            raise VBScriptError('Exit Do not valid in While loop')
+                    elif e.exit_type == ExitType.FOR:
+                        raise VBScriptError('Exit For not valid in While loop')
+                    raise
+        except ExitLoopException as e:
+            if e.exit_type == ExitType.DO:
+                raise VBScriptError('Exit Do not valid in While loop')
+            elif e.exit_type == ExitType.FOR:
+                raise VBScriptError('Exit For not valid in While loop')
+            raise
 
         return None
 
