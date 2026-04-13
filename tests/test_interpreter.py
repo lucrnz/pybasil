@@ -239,6 +239,18 @@ class TestInterpreterStringOperations:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 8  # Numeric addition
 
+    def test_escaped_double_quotes(self):
+        program = parse('x = "He said ""hello"""')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'He said "hello"'
+
+    def test_empty_escaped_quotes(self):
+        program = parse('x = """"""')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == '""'
+
 
 class TestInterpreterComparison:
     """Test comparison operations."""

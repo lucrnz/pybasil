@@ -241,8 +241,8 @@ class VBScriptTransformer(Transformer):
         return NumberLiteral(value=value)
 
     def STRING(self, token: Token) -> StringLiteral:
-        # Remove surrounding quotes
-        value = token.value[1:-1]
+        # Remove surrounding quotes and unescape doubled quotes
+        value = token.value[1:-1].replace('""', '"')
         return StringLiteral(value=value)
 
     def true_literal(self, items: List) -> BooleanLiteral:
