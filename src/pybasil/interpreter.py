@@ -1980,7 +1980,10 @@ class Interpreter:
         s = self._to_string(string)
         f = self._to_string(find)
         r = self._to_string(replace_with)
-        return s.replace(f, r, count if count > 0 else -1)
+        if count > 0:
+            return s.replace(f, r, count)
+        else:
+            return s.replace(f, r)
 
     def _builtin_split(
         self, string: str, delimiter: str = ' ', count: int = -1, compare: int = 0

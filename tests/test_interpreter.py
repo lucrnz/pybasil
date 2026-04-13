@@ -549,6 +549,30 @@ class TestInterpreterBuiltins:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 'Integer'
 
+    def test_replace_default_count(self):
+        program = parse('x = Replace("aaa", "a", "b")')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'bbb'
+
+    def test_replace_with_count(self):
+        program = parse('x = Replace("aaa", "a", "b", 1, 2)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'bba'
+
+    def test_replace_no_match(self):
+        program = parse('x = Replace("hello", "x", "y")')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'hello'
+
+    def test_replace_all_occurrences(self):
+        program = parse('x = Replace("abcabc", "a", "x")')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'xbcxbc'
+
 
 class TestInterpreterEdgeCases:
     """Test edge cases and special behaviors."""
