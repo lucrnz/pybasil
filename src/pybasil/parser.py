@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterator, List, Optional
 
 from lark import Lark, Transformer, Token
 
@@ -904,6 +904,29 @@ class VBScriptTransformer(Transformer):
         return OnErrorGoToStatement(label=0)
 
 
+class _VBScriptPostLexer:
+    """Suppress newline tokens inside parentheses so that multi-line
+    expressions (e.g. function calls spanning lines) parse correctly,
+    while still treating top-level newlines as statement separators."""
+
+    always_accept = ('_NL',)
+
+    def process(self, stream: Iterator[Token]) -> Iterator[Token]:
+        paren_depth = 0
+        for token in stream:
+            if token == '(':
+                paren_depth += 1
+            elif token == ')':
+                paren_depth = max(0, paren_depth - 1)
+
+            if token.type == '_NL':
+                if paren_depth == 0:
+                    yield token
+                continue
+
+            yield token
+
+
 class VBScriptParser:
     """VBScript parser that produces AST from source code."""
 
@@ -917,7 +940,10 @@ class VBScriptParser:
             grammar_path = Path(__file__).parent / 'grammar' / 'vbscript.lark'
             with open(grammar_path, 'r') as f:
                 grammar = f.read()
-            self._lark_parser = Lark(grammar, parser='lalr', start='start')
+            self._lark_parser = Lark(
+                grammar, parser='lalr', start='start',
+                postlex=_VBScriptPostLexer(),
+            )
         return self._lark_parser
 
     def _preprocess(self, source: str) -> str:
@@ -936,6 +962,8 @@ class VBScriptParser:
     def parse(self, source: str) -> Program:
         """Parse VBScript source code and return an AST."""
         source = self._preprocess(source)
+        if not source.endswith('\n'):
+            source += '\n'
         tree = self.parser.parse(source)
         return self._transformer.transform(tree)
 

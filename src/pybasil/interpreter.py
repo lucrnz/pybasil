@@ -693,68 +693,8 @@ class Interpreter:
     def interpret(self, program: Program) -> Any:
         """Interpret a VBScript program."""
         result = None
-        statements = list(program.statements)
-        i = 0
-        while i < len(statements):
-            statement = statements[i]
-            # Check for the grammar ambiguity case where a method call without args
-            # (like Err.Clear) has consumed the next statement as an argument
-            if isinstance(statement, ExpressionStatement):
-                if isinstance(statement.expression, MethodCall):
-                    if isinstance(statement.expression.object, Identifier):
-                        if statement.expression.object.name.lower() == 'err':
-                            method = statement.expression.method.lower()
-                            if method == 'clear' and statement.expression.arguments:
-                                # Err.Clear with spurious arguments - this is a grammar artifact
-                                # The arguments should be executed as separate statements
-                                # But we need to handle the case where the argument is incomplete
-                                # (e.g., WScript.Echo without its actual arguments)
-                                self._err.Clear()
-                                for j, arg in enumerate(statement.expression.arguments):
-                                    if isinstance(arg, MemberAccess):
-                                        # Check if the next statement(s) should be arguments to this
-                                        # This happens when the parser split "WScript.Echo arg" into
-                                        # MemberAccess(WScript.Echo) and the arg as separate statements
-                                        next_stmts = []
-                                        k = i + 1
-                                        while k < len(statements):
-                                            next_stmt = statements[k]
-                                            if isinstance(
-                                                next_stmt, ExpressionStatement
-                                            ):
-                                                # This could be an argument to the member access
-                                                next_stmts.append(next_stmt.expression)
-                                                k += 1
-                                                # Check if we've collected enough args or hit a stopping point
-                                                break
-                                            else:
-                                                break
-                                        if next_stmts:
-                                            # Execute as a method call with the collected arguments
-                                            self._execute_with_error_handling(
-                                                ExpressionStatement(
-                                                    expression=MethodCall(
-                                                        object=arg.object,
-                                                        method=arg.member,
-                                                        arguments=next_stmts,
-                                                    )
-                                                )
-                                            )
-                                            i = k  # Skip the consumed statements
-                                        else:
-                                            # Just execute as a standalone member access
-                                            self._execute_with_error_handling(
-                                                ExpressionStatement(expression=arg)
-                                            )
-                                    else:
-                                        # Execute as a standalone expression
-                                        self._execute_with_error_handling(
-                                            ExpressionStatement(expression=arg)
-                                        )
-                                i += 1
-                                continue
+        for statement in program.statements:
             result = self._execute_with_error_handling(statement)
-            i += 1
         return result
 
     def _execute_with_error_handling(self, node: ASTNode) -> Any:
