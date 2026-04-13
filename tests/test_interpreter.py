@@ -159,6 +159,18 @@ class TestInterpreterArithmetic:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 2
 
+    def test_integer_division_negative(self):
+        program = parse('x = -5 \\ 2')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == -2
+
+    def test_modulo_negative(self):
+        program = parse('x = -5 Mod 3')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == -2
+
     def test_exponentiation(self):
         program = parse('x = 2 ^ 10')
         interpreter = Interpreter()
@@ -329,13 +341,33 @@ class TestInterpreterLogical:
         program = parse('x = True Xor True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get('x') is False
+        assert interpreter._environment.get('x') == 0
 
     def test_xor_true_false(self):
         program = parse('x = True Xor False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get('x') is True
+        assert interpreter._environment.get('x') == -1
+
+    def test_xor_numeric_operands(self):
+        output = io.StringIO()
+        run('WScript.Echo 5 Xor 3', output_stream=output)
+        assert output.getvalue().strip() == '6'
+
+    def test_and_numeric_operands(self):
+        output = io.StringIO()
+        run('WScript.Echo 3 And 1', output_stream=output)
+        assert output.getvalue().strip() == '1'
+
+    def test_and_numeric_bitwise(self):
+        output = io.StringIO()
+        run('WScript.Echo 6 And 3', output_stream=output)
+        assert output.getvalue().strip() == '2'
+
+    def test_or_numeric_operands(self):
+        output = io.StringIO()
+        run('WScript.Echo 3 Or 1', output_stream=output)
+        assert output.getvalue().strip() == '3'
 
     def test_eqv_true_true(self):
         program = parse('x = True Eqv True')
@@ -412,6 +444,16 @@ class TestInterpreterWScriptEcho:
         output = io.StringIO()
         run('WScript.Echo 2 + 2', output_stream=output)
         assert output.getvalue().strip() == '4'
+
+    def test_echo_unary_minus(self):
+        output = io.StringIO()
+        run('WScript.Echo -1', output_stream=output)
+        assert output.getvalue().strip() == '-1'
+
+    def test_echo_unary_plus(self):
+        output = io.StringIO()
+        run('WScript.Echo +5', output_stream=output)
+        assert output.getvalue().strip() == '5'
 
 
 class TestInterpreterBuiltins:

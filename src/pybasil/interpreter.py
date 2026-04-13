@@ -1032,6 +1032,22 @@ class Interpreter:
 
     def _execute_ExpressionStatement(self, node: ExpressionStatement) -> Any:
         """Execute an expression statement."""
+        # Handle misparse of implicit call with unary minus/plus argument.
+        # The parser sees "WScript.Echo -1" as BinaryExpression(SUB,
+        # MemberAccess(WScript, Echo), 1) instead of a method call with
+        # argument -1.  Re-interpret as MethodCall when the left operand
+        # is a MemberAccess (i.e. looks like a callable).
+        if isinstance(node.expression, BinaryExpression) and node.expression.operator in (BinaryOp.ADD, BinaryOp.SUB):
+            left = node.expression.left
+            if isinstance(left, MemberAccess):
+                arg = node.expression.right
+                if node.expression.operator == BinaryOp.SUB:
+                    arg = UnaryExpression(operator=UnaryOp.NEG, operand=arg)
+                rewritten = MethodCall(
+                    object=left.object, method=left.member, arguments=[arg]
+                )
+                return self._evaluate(rewritten)
+
         # Check if this is a procedure call (FunctionCall to a Sub or Function)
         if isinstance(node.expression, FunctionCall):
             name = node.expression.name.lower()
@@ -1693,12 +1709,12 @@ class Interpreter:
             right_num = self._to_number(right)
             if right_num == 0:
                 raise VBScriptError('Division by zero')
-            return int(self._to_number(left) // right_num)
+            return int(self._to_number(left) / right_num)
         elif op == BinaryOp.MOD:
             right_num = self._to_number(right)
             if right_num == 0:
                 raise VBScriptError('Division by zero')
-            return self._to_number(left) % right_num
+            return int(math.fmod(self._to_number(left), right_num))
         elif op == BinaryOp.POW:
             return self._to_number(left) ** self._to_number(right)
         elif op == BinaryOp.CONCAT:
@@ -1708,7 +1724,7 @@ class Interpreter:
         elif op == BinaryOp.OR:
             return self._logical_or(left, right)
         elif op == BinaryOp.XOR:
-            return bool(self._to_number(left) ^ self._to_number(right))
+            return int(self._to_number(left)) ^ int(self._to_number(right))
         elif op == BinaryOp.EQV:
             return not (bool(self._to_number(left)) ^ bool(self._to_number(right)))
         elif op == BinaryOp.IMP:
@@ -1815,8 +1831,8 @@ class Interpreter:
         if isinstance(right, VBScriptNull):
             return False if not self._to_boolean(left) else NULL
         # VBScript uses bitwise AND for numbers
-        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return bool(int(left) & int(right))
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+            return int(left) & int(right)
         return self._to_boolean(left) and self._to_boolean(right)
 
     def _logical_or(self, left: Any, right: Any) -> Any:
@@ -1828,8 +1844,8 @@ class Interpreter:
         if isinstance(right, VBScriptNull):
             return True if self._to_boolean(left) else NULL
         # VBScript uses bitwise OR for numbers
-        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return bool(int(left) | int(right))
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+            return int(left) | int(right)
         return self._to_boolean(left) or self._to_boolean(right)
 
     def _to_number(self, value: Any) -> float:
