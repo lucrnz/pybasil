@@ -50,7 +50,6 @@ class TestInterpreterLiterals:
         program = parse("x = Nothing")
         interpreter = Interpreter()
         interpreter.interpret(program)
-        from pybasil import NOTHING
 
         assert interpreter._environment.get("x") == NOTHING
 

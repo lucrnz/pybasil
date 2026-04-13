@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
-from lark import Lark, Transformer, Token, Tree
+from lark import Lark, Transformer, Token
 
 from .ast_nodes import (
     ASTNode,

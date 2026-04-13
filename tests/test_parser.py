@@ -1,10 +1,7 @@
 """Tests for the VBScript parser."""
 
-import pytest
 from pybasil import (
     parse,
-    VBScriptParser,
-    Program,
     DimStatement,
     AssignmentStatement,
     SetStatement,
@@ -29,7 +26,6 @@ from pybasil import (
     ForStatement,
     WhileStatement,
     DoLoopStatement,
-    LoopCondition,
     ExitStatement,
     SubStatement,
     FunctionStatement,

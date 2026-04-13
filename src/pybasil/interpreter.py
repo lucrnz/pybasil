@@ -24,23 +24,17 @@ from .ast_nodes import (
     MethodCall,
     NewExpression,
     ArrayAccess,
-    DimVariable,
     DimStatement,
     AssignmentStatement,
     SetStatement,
     CallStatement,
     ExpressionStatement,
     IfStatement,
-    ElseIfClause,
-    ElseClause,
-    CaseClause,
-    CaseElseClause,
     SelectCaseStatement,
     ForStatement,
     ForEachStatement,
     WhileStatement,
     DoLoopStatement,
-    LoopCondition,
     ExitStatement,
     SubStatement,
     FunctionStatement,
@@ -301,7 +295,7 @@ class VBScriptDictionary:
         """Add a key-item pair to the dictionary."""
         norm_key = self._normalize_key(key)
         if norm_key in self._data:
-            raise VBScriptError(f"This key is already associated with an element of this collection")
+            raise VBScriptError("This key is already associated with an element of this collection")
         self._data[norm_key] = item
         self._key_order.append(norm_key)
     
@@ -337,7 +331,7 @@ class VBScriptDictionary:
         """Remove a key-item pair from the dictionary."""
         norm_key = self._normalize_key(key)
         if norm_key not in self._data:
-            raise VBScriptError(f"This key is not associated with an element of this collection")
+            raise VBScriptError("This key is not associated with an element of this collection")
         del self._data[norm_key]
         self._key_order.remove(norm_key)
     
@@ -378,7 +372,7 @@ class VBScriptDictionary:
         """Get the key value (for Key property)."""
         norm_key = self._normalize_key(key)
         if norm_key not in self._data:
-            raise VBScriptError(f"This key is not associated with an element of this collection")
+            raise VBScriptError("This key is not associated with an element of this collection")
         return norm_key
     
     def set_key(self, old_key: Any, new_key: Any) -> None:
@@ -387,9 +381,9 @@ class VBScriptDictionary:
         norm_new = self._normalize_key(new_key)
         
         if norm_old not in self._data:
-            raise VBScriptError(f"This key is not associated with an element of this collection")
+            raise VBScriptError("This key is not associated with an element of this collection")
         if norm_new in self._data and norm_new != norm_old:
-            raise VBScriptError(f"This key is already associated with an element of this collection")
+            raise VBScriptError("This key is already associated with an element of this collection")
         
         # Move the item to the new key
         item = self._data[norm_old]
@@ -896,7 +890,7 @@ class Interpreter:
                 else:
                     raise VBScriptError(f"Object doesn't support this property or method: {target.method}")
             else:
-                raise VBScriptError(f"Object doesn't support this property or method")
+                raise VBScriptError("Object doesn't support this property or method")
         
         elif isinstance(target, ArrayAccess):
             # arr(index) = value or dict("key") = value (default property)
@@ -1278,7 +1272,7 @@ class Interpreter:
                     if e.exit_type == ExitType.DO:
                         raise VBScriptError("Exit Do not valid in While loop")
                     return None
-        except ExitLoopException as e:
+        except ExitLoopException:
             raise VBScriptError("Exit Do not valid in While loop")
         
         return None
@@ -1821,7 +1815,7 @@ class Interpreter:
                 return float(value)
             except ValueError:
                 raise VBScriptError(f"Type mismatch: cannot convert '{value}' to number")
-        raise VBScriptError(f"Type mismatch: cannot convert to number")
+        raise VBScriptError("Type mismatch: cannot convert to number")
 
     def _to_string(self, value: Any) -> str:
         """Convert a value to a string."""
