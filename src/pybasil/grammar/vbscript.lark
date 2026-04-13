@@ -176,7 +176,7 @@ intdiv_tail: BACKSLASH mod_expr
 ?mod_expr: pow_expr mod_tail*
 mod_tail: MOD_KW pow_expr
 
-?pow_expr: unary_expr ("^" unary_expr)*
+?pow_expr: unary_expr "^" pow_expr | unary_expr
 
 ?unary_expr: MINUS unary_expr
            | PLUS unary_expr

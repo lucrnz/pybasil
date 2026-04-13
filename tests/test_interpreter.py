@@ -165,6 +165,13 @@ class TestInterpreterArithmetic:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 1024
 
+    def test_exponentiation_right_associative(self):
+        program = parse('x = 2 ^ 3 ^ 2')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        # Right-associative: 2 ^ (3 ^ 2) = 2 ^ 9 = 512
+        assert interpreter._environment.get('x') == 512
+
     def test_negation(self):
         program = parse('x = -5')
         interpreter = Interpreter()
@@ -877,6 +884,31 @@ class TestInterpreterForStatement:
         interpreter = Interpreter()
         interpreter.interpret(program)
         assert interpreter._environment.exists('i')
+
+    def test_for_default_step_countdown(self):
+        output = io.StringIO()
+        run(
+            """
+            For i = 5 To 1
+                WScript.Echo i
+            Next
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['5', '4', '3', '2', '1']
+
+    def test_for_default_step_countdown_single(self):
+        output = io.StringIO()
+        run(
+            """
+            For i = 3 To 3
+                WScript.Echo i
+            Next
+        """,
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == '3'
 
 
 class TestInterpreterWhileStatement:

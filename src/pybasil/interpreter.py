@@ -1195,7 +1195,7 @@ class Interpreter:
             step_val = self._to_number(self._evaluate(node.step))
         else:
             # Default step is 1, or -1 if start > end
-            step_val = 1 if start_val <= end_val else 1
+            step_val = 1 if start_val <= end_val else -1
 
         # Set the loop variable to start value
         self._environment.set(node.variable, start_val)
