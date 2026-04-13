@@ -1980,19 +1980,27 @@ class Interpreter:
     def _builtin_instr(self, *args) -> int:
         """InStr function."""
         if len(args) == 2:
+            start = 1
             string1, string2 = args
-        elif len(args) >= 3:
-            _, string1, string2 = args[0], args[1], args[2]
+            compare = 0
+        elif len(args) == 3:
+            start = int(args[0])
+            string1, string2 = args[1], args[2]
+            compare = 0
+        elif len(args) >= 4:
+            start = int(args[0])
+            string1, string2 = args[1], args[2]
+            compare = int(args[3])
         else:
             return 0
 
         s1 = self._to_string(string1)
         s2 = self._to_string(string2)
-        idx = (
-            s1.lower().find(s2.lower())
-            if len(args) > 2 and isinstance(args[0], int) and args[0] == 1
-            else s1.find(s2)
-        )
+        start_idx = start - 1  # VBScript is 1-indexed
+        if compare == 1:
+            idx = s1.lower().find(s2.lower(), start_idx)
+        else:
+            idx = s1.find(s2, start_idx)
         return idx + 1 if idx >= 0 else 0
 
     def _builtin_replace(

@@ -637,6 +637,24 @@ class TestInterpreterBuiltins:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 'xbcxbc'
 
+    def test_instr_with_start_parameter(self):
+        program = parse('x = InStr(4, "Hello", "l")')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 4
+
+    def test_instr_case_insensitive_compare(self):
+        program = parse('x = InStr(1, "Hello", "h", 1)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 1
+
+    def test_instr_two_args(self):
+        program = parse('x = InStr("Hello", "l")')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 3
+
 
 class TestInterpreterEdgeCases:
     """Test edge cases and special behaviors."""
