@@ -1551,7 +1551,8 @@ class Interpreter:
         if func_name in self._procedures:
             proc = self._procedures[func_name]
             if not proc.is_function:
-                raise VBScriptError(f"Cannot call Sub '{node.name}' as a function")
+                self._execute_procedure(proc, node.arguments)
+                return EMPTY
             return self._execute_procedure(proc, node.arguments)
 
         # Check built-in functions
@@ -1586,7 +1587,8 @@ class Interpreter:
             if func_name in self._procedures:
                 proc = self._procedures[func_name]
                 if not proc.is_function:
-                    raise VBScriptError(f"Cannot call Sub '{node.name}' as a function")
+                    self._execute_procedure(proc, node.indices)
+                    return EMPTY
                 return self._execute_procedure(proc, node.indices)
 
             if func_name in self._builtins:

@@ -1439,6 +1439,22 @@ class TestInterpreterSub:
         lines = output.getvalue().strip().split('\n')
         assert lines == ['Inside: 20', 'Outside: 10']
 
+    def test_sub_called_in_expression_returns_empty(self):
+        output = io.StringIO()
+        run(
+            """
+            Sub MySub(x)
+                WScript.Echo x
+            End Sub
+
+            result = MySub(42)
+            WScript.Echo TypeName(result)
+        """,
+            output_stream=output,
+        )
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['42', 'Empty']
+
 
 class TestInterpreterFunction:
     """Test Function procedures."""
