@@ -3,7 +3,7 @@
 from __future__ import annotations
 import math
 import sys
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 from dataclasses import dataclass
 
 from .ast_nodes import (
@@ -1860,7 +1860,7 @@ class Interpreter:
             return int(left) | int(right)
         return self._to_boolean(left) or self._to_boolean(right)
 
-    def _to_number(self, value: Any) -> float:
+    def _to_number(self, value: Any) -> Union[int, float]:
         """Convert a value to a number."""
         if isinstance(value, VBScriptEmpty):
             return 0
@@ -1872,7 +1872,7 @@ class Interpreter:
             # In VBScript, True is -1 and False is 0
             return -1 if value else 0
         if isinstance(value, (int, float)):
-            return float(value)
+            return value
         if isinstance(value, str):
             if value == '':
                 return 0

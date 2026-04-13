@@ -613,6 +613,20 @@ class TestInterpreterBuiltins:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 'Integer'
 
+    def test_typename_integer_addition(self):
+        program = parse('x = TypeName(5 + 3)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'Integer'
+
+    def test_integer_arithmetic_preserves_type(self):
+        program = parse('x = 5 + 3')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        result = interpreter._environment.get('x')
+        assert result == 8
+        assert isinstance(result, int)
+
     def test_replace_default_count(self):
         program = parse('x = Replace("aaa", "a", "b")')
         interpreter = Interpreter()
