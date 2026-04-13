@@ -417,6 +417,16 @@ class TestInterpreterLogical:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') is True
 
+    def test_eqv_numeric_operands(self):
+        output = io.StringIO()
+        run('WScript.Echo 5 Eqv 3', output_stream=output)
+        assert output.getvalue().strip() == '-7'
+
+    def test_imp_numeric_operands(self):
+        output = io.StringIO()
+        run('WScript.Echo 5 Imp 3', output_stream=output)
+        assert output.getvalue().strip() == '-5'
+
 
 class TestInterpreterWScriptEcho:
     """Test WScript.Echo functionality."""

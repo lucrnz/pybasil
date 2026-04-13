@@ -1726,9 +1726,13 @@ class Interpreter:
         elif op == BinaryOp.XOR:
             return int(self._to_number(left)) ^ int(self._to_number(right))
         elif op == BinaryOp.EQV:
-            return not (bool(self._to_number(left)) ^ bool(self._to_number(right)))
+            if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+                return ~(int(left) ^ int(right))
+            return not (self._to_boolean(left) ^ self._to_boolean(right))
         elif op == BinaryOp.IMP:
-            return (not bool(self._to_number(left))) or bool(self._to_number(right))
+            if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+                return (~int(left)) | int(right)
+            return (not self._to_boolean(left)) or self._to_boolean(right)
         else:
             raise VBScriptError(f'Unknown binary operator: {op}')
 
