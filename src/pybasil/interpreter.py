@@ -2023,11 +2023,15 @@ class Interpreter:
 
     def _builtin_split(
         self, string: str, delimiter: str = ' ', count: int = -1, compare: int = 0
-    ) -> list:
+    ) -> VBScriptArray:
         """Split function."""
         s = self._to_string(string)
         d = self._to_string(delimiter)
-        return s.split(d)
+        parts = s.split(d)
+        arr = VBScriptArray([len(parts) - 1], is_dynamic=True)
+        for i, part in enumerate(parts):
+            arr.set_element([i], part)
+        return arr
 
     def _builtin_join(self, array: list, delimiter: str = ' ') -> str:
         """Join function."""

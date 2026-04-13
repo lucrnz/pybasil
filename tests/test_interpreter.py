@@ -655,6 +655,16 @@ class TestInterpreterBuiltins:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 3
 
+    def test_split_array_access(self):
+        code = '''Dim arr
+arr = Split("a,b,c", ",")
+x = arr(1)
+'''
+        program = parse(code)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'b'
+
 
 class TestInterpreterEdgeCases:
     """Test edge cases and special behaviors."""
