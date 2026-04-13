@@ -7,59 +7,61 @@ from enum import Enum, auto
 
 
 class ComparisonOp(Enum):
-    EQ = auto()      # =
-    NE = auto()      # <>
-    LT = auto()      # <
-    GT = auto()      # >
-    LE = auto()      # <=
-    GE = auto()      # >=
-    IS = auto()      # Is
+    EQ = auto()  # =
+    NE = auto()  # <>
+    LT = auto()  # <
+    GT = auto()  # >
+    LE = auto()  # <=
+    GE = auto()  # >=
+    IS = auto()  # Is
 
 
 class BinaryOp(Enum):
-    ADD = auto()         # +
-    SUB = auto()         # -
-    MUL = auto()         # *
-    DIV = auto()         # /
-    INTDIV = auto()      # \
-    MOD = auto()         # Mod
-    POW = auto()         # ^
-    CONCAT = auto()      # &
-    AND = auto()         # And
-    OR = auto()          # Or
-    XOR = auto()         # Xor
-    EQV = auto()         # Eqv
-    IMP = auto()         # Imp
+    ADD = auto()  # +
+    SUB = auto()  # -
+    MUL = auto()  # *
+    DIV = auto()  # /
+    INTDIV = auto()  # \
+    MOD = auto()  # Mod
+    POW = auto()  # ^
+    CONCAT = auto()  # &
+    AND = auto()  # And
+    OR = auto()  # Or
+    XOR = auto()  # Xor
+    EQV = auto()  # Eqv
+    IMP = auto()  # Imp
 
 
 class UnaryOp(Enum):
-    NEG = auto()         # -
-    POS = auto()         # +
-    NOT = auto()         # Not
+    NEG = auto()  # -
+    POS = auto()  # +
+    NOT = auto()  # Not
 
 
 class ExitType(Enum):
-    FOR = auto()         # Exit For
-    DO = auto()          # Exit Do
-    SUB = auto()         # Exit Sub
-    FUNCTION = auto()    # Exit Function
+    FOR = auto()  # Exit For
+    DO = auto()  # Exit Do
+    SUB = auto()  # Exit Sub
+    FUNCTION = auto()  # Exit Function
 
 
 class LoopConditionType(Enum):
-    WHILE = auto()       # While condition
-    UNTIL = auto()       # Until condition
+    WHILE = auto()  # While condition
+    UNTIL = auto()  # Until condition
 
 
 class ErrorHandlingMode(Enum):
     """Error handling mode for VBScript."""
-    DEFAULT = auto()      # Default - raise errors immediately
+
+    DEFAULT = auto()  # Default - raise errors immediately
     RESUME_NEXT = auto()  # On Error Resume Next - continue on error
-    GOTO = auto()         # On Error GoTo - jump to label on error
+    GOTO = auto()  # On Error GoTo - jump to label on error
 
 
 @dataclass
 class ASTNode:
     """Base class for all AST nodes."""
+
     pass
 
 
@@ -148,6 +150,7 @@ class NewExpression(ASTNode):
 @dataclass
 class ArrayAccess(ASTNode):
     """Array element access like arr(i) or matrix(i, j)."""
+
     name: str
     indices: List[ASTNode] = field(default_factory=list)
 
@@ -156,8 +159,11 @@ class ArrayAccess(ASTNode):
 @dataclass
 class DimVariable(ASTNode):
     """A variable declaration in a Dim statement."""
+
     name: str
-    dimensions: Optional[List[ASTNode]] = None  # None for simple var, [] for dynamic array, [sizes] for fixed
+    dimensions: Optional[List[ASTNode]] = (
+        None  # None for simple var, [] for dynamic array, [sizes] for fixed
+    )
 
 
 # Statements
@@ -183,7 +189,10 @@ class SetStatement(ASTNode):
 @dataclass
 class PropertyAssignmentStatement(ASTNode):
     """Property assignment like obj.Property = value or obj.Property("key") = value."""
-    target: ASTNode  # The expression being assigned to (e.g., MemberAccess or ArrayAccess)
+
+    target: (
+        ASTNode  # The expression being assigned to (e.g., MemberAccess or ArrayAccess)
+    )
     expression: ASTNode
 
 
@@ -243,6 +252,7 @@ class IfStatement(ASTNode):
 @dataclass
 class CaseClause(ASTNode):
     """A Case clause in a Select Case statement."""
+
     values: List[ASTNode]  # List of values to match
     body: List[ASTNode]
 
@@ -250,12 +260,14 @@ class CaseClause(ASTNode):
 @dataclass
 class CaseElseClause(ASTNode):
     """A Case Else clause in a Select Case statement."""
+
     body: List[ASTNode]
 
 
 @dataclass
 class SelectCaseStatement(ASTNode):
     """Select Case expression ... Case ... End Select"""
+
     expression: ASTNode
     case_clauses: List[CaseClause] = field(default_factory=list)
     case_else_clause: Optional[CaseElseClause] = None
@@ -273,6 +285,7 @@ class ForStatement(ASTNode):
 @dataclass
 class ForEachStatement(ASTNode):
     """For Each item In collection ... Next"""
+
     variable: str
     collection: ASTNode
     body: List[ASTNode] = field(default_factory=list)
@@ -281,6 +294,7 @@ class ForEachStatement(ASTNode):
 @dataclass
 class ReDimStatement(ASTNode):
     """ReDim [Preserve] name(dims) [, name2(dims2)]*"""
+
     preserve: bool
     arrays: List[tuple]  # List of (name, dimensions) tuples
 
@@ -288,6 +302,7 @@ class ReDimStatement(ASTNode):
 @dataclass
 class EraseStatement(ASTNode):
     """Erase array1 [, array2]*"""
+
     arrays: List[str]
 
 
@@ -318,12 +333,14 @@ class ExitStatement(ASTNode):
 @dataclass
 class OnErrorResumeNextStatement(ASTNode):
     """On Error Resume Next - continue execution after errors."""
+
     pass
 
 
 @dataclass
 class OnErrorGoToStatement(ASTNode):
     """On Error GoTo 0 - reset error handling to default."""
+
     label: int  # 0 for resetting to default, or line number for GoTo
 
 

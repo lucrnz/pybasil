@@ -17,68 +17,68 @@ class TestInterpreterLiterals:
     """Test evaluation of literal values."""
 
     def test_integer_literal(self):
-        program = parse("x = 42")
+        program = parse('x = 42')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 42
+        assert interpreter._environment.get('x') == 42
 
     def test_float_literal(self):
-        program = parse("x = 3.14")
+        program = parse('x = 3.14')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3.14
+        assert interpreter._environment.get('x') == 3.14
 
     def test_string_literal(self):
         program = parse('x = "Hello"')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "Hello"
+        assert interpreter._environment.get('x') == 'Hello'
 
     def test_boolean_true(self):
-        program = parse("x = True")
+        program = parse('x = True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_boolean_false(self):
-        program = parse("x = False")
+        program = parse('x = False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_nothing_literal(self):
-        program = parse("x = Nothing")
+        program = parse('x = Nothing')
         interpreter = Interpreter()
         interpreter.interpret(program)
 
-        assert interpreter._environment.get("x") == NOTHING
+        assert interpreter._environment.get('x') == NOTHING
 
     def test_empty_literal(self):
-        program = parse("x = Empty")
+        program = parse('x = Empty')
         interpreter = Interpreter()
         interpreter.interpret(program)
         from pybasil import EMPTY
 
-        assert interpreter._environment.get("x") == EMPTY
+        assert interpreter._environment.get('x') == EMPTY
 
     def test_null_literal(self):
-        program = parse("x = Null")
+        program = parse('x = Null')
         interpreter = Interpreter()
         interpreter.interpret(program)
         from pybasil import NULL
 
-        assert interpreter._environment.get("x") == NULL
+        assert interpreter._environment.get('x') == NULL
 
 
 class TestInterpreterVariables:
     """Test variable handling."""
 
     def test_variable_assignment(self):
-        program = parse("x = 42")
+        program = parse('x = 42')
         interpreter = Interpreter()
         interpreter.interpret(program)
         # Check that x is accessible
-        assert interpreter._environment.get("x") == 42
+        assert interpreter._environment.get('x') == 42
 
     def test_variable_lookup(self):
         program = parse("""
@@ -87,28 +87,28 @@ class TestInterpreterVariables:
         """)
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("y") == 10
+        assert interpreter._environment.get('y') == 10
 
     def test_implicit_variable_creation(self):
-        program = parse("y = x")
+        program = parse('y = x')
         interpreter = Interpreter()
         interpreter.interpret(program)
         # x should be Empty (implicit creation)
-        assert interpreter._environment.get("x") == EMPTY
+        assert interpreter._environment.get('x') == EMPTY
 
     def test_dim_statement(self):
-        program = parse("Dim x, y, z")
+        program = parse('Dim x, y, z')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.exists("x")
-        assert interpreter._environment.exists("y")
-        assert interpreter._environment.exists("z")
+        assert interpreter._environment.exists('x')
+        assert interpreter._environment.exists('y')
+        assert interpreter._environment.exists('z')
 
     def test_set_statement(self):
         program = parse('Set obj = CreateObject("Test.Object")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.exists("obj")
+        assert interpreter._environment.exists('obj')
 
     def test_case_insensitive_variables(self):
         program = parse("""
@@ -117,81 +117,81 @@ class TestInterpreterVariables:
         """)
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("y") == 42
+        assert interpreter._environment.get('y') == 42
 
 
 class TestInterpreterArithmetic:
     """Test arithmetic operations."""
 
     def test_addition(self):
-        program = parse("x = 5 + 3")
+        program = parse('x = 5 + 3')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 8
+        assert interpreter._environment.get('x') == 8
 
     def test_subtraction(self):
-        program = parse("x = 10 - 4")
+        program = parse('x = 10 - 4')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 6
+        assert interpreter._environment.get('x') == 6
 
     def test_multiplication(self):
-        program = parse("x = 6 * 7")
+        program = parse('x = 6 * 7')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 42
+        assert interpreter._environment.get('x') == 42
 
     def test_division(self):
-        program = parse("x = 15 / 3")
+        program = parse('x = 15 / 3')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 5.0
+        assert interpreter._environment.get('x') == 5.0
 
     def test_integer_division(self):
-        program = parse("x = 17 \\ 5")
+        program = parse('x = 17 \\ 5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3
+        assert interpreter._environment.get('x') == 3
 
     def test_modulo(self):
-        program = parse("x = 17 Mod 5")
+        program = parse('x = 17 Mod 5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 2
+        assert interpreter._environment.get('x') == 2
 
     def test_exponentiation(self):
-        program = parse("x = 2 ^ 10")
+        program = parse('x = 2 ^ 10')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 1024
+        assert interpreter._environment.get('x') == 1024
 
     def test_negation(self):
-        program = parse("x = -5")
+        program = parse('x = -5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == -5
+        assert interpreter._environment.get('x') == -5
 
     def test_unary_plus(self):
-        program = parse("x = +5")
+        program = parse('x = +5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 5
+        assert interpreter._environment.get('x') == 5
 
     def test_complex_expression(self):
-        program = parse("x = 2 + 3 * 4 - 1")
+        program = parse('x = 2 + 3 * 4 - 1')
         interpreter = Interpreter()
         interpreter.interpret(program)
         # 2 + 12 - 1 = 13
-        assert interpreter._environment.get("x") == 13
+        assert interpreter._environment.get('x') == 13
 
     def test_parentheses(self):
-        program = parse("x = (2 + 3) * 4")
+        program = parse('x = (2 + 3) * 4')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 20
+        assert interpreter._environment.get('x') == 20
 
     def test_division_by_zero(self):
-        program = parse("x = 10 / 0")
+        program = parse('x = 10 / 0')
         interpreter = Interpreter()
         with pytest.raises(VBScriptError):
             interpreter.interpret(program)
@@ -204,13 +204,13 @@ class TestInterpreterStringOperations:
         program = parse('x = "Hello" & " " & "World"')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "Hello World"
+        assert interpreter._environment.get('x') == 'Hello World'
 
     def test_string_number_concatenation(self):
         program = parse('x = "Value: " & 42')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "Value: 42"
+        assert interpreter._environment.get('x') == 'Value: 42'
 
     def test_number_string_addition(self):
         # In VBScript, + with a numeric string and number does arithmetic addition
@@ -218,153 +218,153 @@ class TestInterpreterStringOperations:
         program = parse('x = "5" + 3')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 8  # Numeric addition
+        assert interpreter._environment.get('x') == 8  # Numeric addition
 
 
 class TestInterpreterComparison:
     """Test comparison operations."""
 
     def test_equals_true(self):
-        program = parse("x = (5 = 5)")
+        program = parse('x = (5 = 5)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_equals_false(self):
-        program = parse("x = (5 = 6)")
+        program = parse('x = (5 = 6)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_not_equals(self):
-        program = parse("x = (5 <> 6)")
+        program = parse('x = (5 <> 6)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_less_than(self):
-        program = parse("x = (3 < 5)")
+        program = parse('x = (3 < 5)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_greater_than(self):
-        program = parse("x = (7 > 5)")
+        program = parse('x = (7 > 5)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_less_equal(self):
-        program = parse("x = (5 <= 5)")
+        program = parse('x = (5 <= 5)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_greater_equal(self):
-        program = parse("x = (5 >= 5)")
+        program = parse('x = (5 >= 5)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_string_comparison(self):
         program = parse('x = ("abc" < "def")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_is_operator_nothing(self):
-        program = parse("x = (Nothing Is Nothing)")
+        program = parse('x = (Nothing Is Nothing)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
 
 class TestInterpreterLogical:
     """Test logical operations."""
 
     def test_and_true(self):
-        program = parse("x = True And True")
+        program = parse('x = True And True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_and_false(self):
-        program = parse("x = True And False")
+        program = parse('x = True And False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_or_true(self):
-        program = parse("x = False Or True")
+        program = parse('x = False Or True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_or_false(self):
-        program = parse("x = False Or False")
+        program = parse('x = False Or False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_not_true(self):
-        program = parse("x = Not True")
+        program = parse('x = Not True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_not_false(self):
-        program = parse("x = Not False")
+        program = parse('x = Not False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_xor_true_true(self):
-        program = parse("x = True Xor True")
+        program = parse('x = True Xor True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_xor_true_false(self):
-        program = parse("x = True Xor False")
+        program = parse('x = True Xor False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_eqv_true_true(self):
-        program = parse("x = True Eqv True")
+        program = parse('x = True Eqv True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_eqv_true_false(self):
-        program = parse("x = True Eqv False")
+        program = parse('x = True Eqv False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_imp_true_true(self):
-        program = parse("x = True Imp True")
+        program = parse('x = True Imp True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_imp_true_false(self):
-        program = parse("x = True Imp False")
+        program = parse('x = True Imp False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_imp_false_true(self):
-        program = parse("x = False Imp True")
+        program = parse('x = False Imp True')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_imp_false_false(self):
-        program = parse("x = False Imp False")
+        program = parse('x = False Imp False')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
 
 class TestInterpreterWScriptEcho:
@@ -373,22 +373,22 @@ class TestInterpreterWScriptEcho:
     def test_echo_string(self):
         output = io.StringIO()
         run('WScript.Echo "Hello, World!"', output_stream=output)
-        assert output.getvalue().strip() == "Hello, World!"
+        assert output.getvalue().strip() == 'Hello, World!'
 
     def test_echo_number(self):
         output = io.StringIO()
-        run("WScript.Echo 42", output_stream=output)
-        assert output.getvalue().strip() == "42"
+        run('WScript.Echo 42', output_stream=output)
+        assert output.getvalue().strip() == '42'
 
     def test_echo_multiple_args(self):
         output = io.StringIO()
         run('WScript.Echo "Hello", "World", 42', output_stream=output)
-        assert output.getvalue().strip() == "Hello World 42"
+        assert output.getvalue().strip() == 'Hello World 42'
 
     def test_echo_boolean(self):
         output = io.StringIO()
-        run("WScript.Echo True", output_stream=output)
-        assert output.getvalue().strip() == "True"
+        run('WScript.Echo True', output_stream=output)
+        assert output.getvalue().strip() == 'True'
 
     def test_echo_variable(self):
         output = io.StringIO()
@@ -399,12 +399,12 @@ class TestInterpreterWScriptEcho:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Test Value"
+        assert output.getvalue().strip() == 'Test Value'
 
     def test_echo_expression(self):
         output = io.StringIO()
-        run("WScript.Echo 2 + 2", output_stream=output)
-        assert output.getvalue().strip() == "4"
+        run('WScript.Echo 2 + 2', output_stream=output)
+        assert output.getvalue().strip() == '4'
 
 
 class TestInterpreterBuiltins:
@@ -414,161 +414,161 @@ class TestInterpreterBuiltins:
         program = parse('x = Len("Hello")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 5
+        assert interpreter._environment.get('x') == 5
 
     def test_left(self):
         program = parse('x = Left("Hello", 3)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "Hel"
+        assert interpreter._environment.get('x') == 'Hel'
 
     def test_right(self):
         program = parse('x = Right("Hello", 3)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "llo"
+        assert interpreter._environment.get('x') == 'llo'
 
     def test_mid(self):
         program = parse('x = Mid("Hello", 2, 3)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "ell"
+        assert interpreter._environment.get('x') == 'ell'
 
     def test_trim(self):
         program = parse('x = Trim("  Hello  ")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "Hello"
+        assert interpreter._environment.get('x') == 'Hello'
 
     def test_ucase(self):
         program = parse('x = UCase("hello")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "HELLO"
+        assert interpreter._environment.get('x') == 'HELLO'
 
     def test_lcase(self):
         program = parse('x = LCase("HELLO")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "hello"
+        assert interpreter._environment.get('x') == 'hello'
 
     def test_cstr(self):
-        program = parse("x = CStr(42)")
+        program = parse('x = CStr(42)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "42"
+        assert interpreter._environment.get('x') == '42'
 
     def test_cint(self):
-        program = parse("x = CInt(3.7)")
+        program = parse('x = CInt(3.7)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 4
+        assert interpreter._environment.get('x') == 4
 
     def test_cdbl(self):
         program = parse('x = CDbl("3.14")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3.14
+        assert interpreter._environment.get('x') == 3.14
 
     def test_cbool(self):
-        program = parse("x = CBool(1)")
+        program = parse('x = CBool(1)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_abs(self):
-        program = parse("x = Abs(-5)")
+        program = parse('x = Abs(-5)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 5
+        assert interpreter._environment.get('x') == 5
 
     def test_sqr(self):
-        program = parse("x = Sqr(16)")
+        program = parse('x = Sqr(16)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 4.0
+        assert interpreter._environment.get('x') == 4.0
 
     def test_int(self):
-        program = parse("x = Int(3.7)")
+        program = parse('x = Int(3.7)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3
+        assert interpreter._environment.get('x') == 3
 
     def test_fix(self):
-        program = parse("x = Fix(3.7)")
+        program = parse('x = Fix(3.7)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3
+        assert interpreter._environment.get('x') == 3
 
     def test_round(self):
-        program = parse("x = Round(3.14159, 2)")
+        program = parse('x = Round(3.14159, 2)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 3.14
+        assert interpreter._environment.get('x') == 3.14
 
     def test_isnumeric_true(self):
         program = parse('x = IsNumeric("123")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_isnumeric_false(self):
         program = parse('x = IsNumeric("abc")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is False
+        assert interpreter._environment.get('x') is False
 
     def test_isempty(self):
-        program = parse("x = IsEmpty(Empty)")
+        program = parse('x = IsEmpty(Empty)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_isnull(self):
-        program = parse("x = IsNull(Null)")
+        program = parse('x = IsNull(Null)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_typename_string(self):
         program = parse('x = TypeName("Hello")')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "String"
+        assert interpreter._environment.get('x') == 'String'
 
     def test_typename_integer(self):
-        program = parse("x = TypeName(42)")
+        program = parse('x = TypeName(42)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "Integer"
+        assert interpreter._environment.get('x') == 'Integer'
 
 
 class TestInterpreterEdgeCases:
     """Test edge cases and special behaviors."""
 
     def test_empty_in_arithmetic(self):
-        program = parse("x = Empty + 5")
+        program = parse('x = Empty + 5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == 5
+        assert interpreter._environment.get('x') == 5
 
     def test_empty_in_string_concat(self):
         program = parse('x = Empty & "text"')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == "text"
+        assert interpreter._environment.get('x') == 'text'
 
     def test_null_propagation(self):
-        program = parse("x = Null + 5")
+        program = parse('x = Null + 5')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == NULL
+        assert interpreter._environment.get('x') == NULL
 
     def test_null_comparison(self):
-        program = parse("x = (Null = Null)")
+        program = parse('x = (Null = Null)')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("x") == NULL
+        assert interpreter._environment.get('x') == NULL
 
     def test_multiple_statements(self):
         program = parse("""
@@ -579,7 +579,7 @@ class TestInterpreterEdgeCases:
         """)
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get("c") == 3
+        assert interpreter._environment.get('c') == 3
 
     def test_comments_ignored(self):
         output = io.StringIO()
@@ -591,7 +591,7 @@ class TestInterpreterEdgeCases:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "5"
+        assert output.getvalue().strip() == '5'
 
 
 class TestInterpreterTypeCoercion:
@@ -602,13 +602,13 @@ class TestInterpreterTypeCoercion:
         interpreter = Interpreter()
         interpreter.interpret(program)
         # String + number = numeric addition (string is converted to number)
-        assert interpreter._environment.get("x") == 15
+        assert interpreter._environment.get('x') == 15
 
     def test_non_numeric_string_addition_raises_error(self):
         # Non-numeric string + number should raise type mismatch
         program = parse('x = "abc" + 5')
         interpreter = Interpreter()
-        with pytest.raises(VBScriptError, match="Type mismatch"):
+        with pytest.raises(VBScriptError, match='Type mismatch'):
             interpreter.interpret(program)
 
     def test_number_to_string_comparison(self):
@@ -616,14 +616,14 @@ class TestInterpreterTypeCoercion:
         interpreter = Interpreter()
         interpreter.interpret(program)
         # String comparison
-        assert interpreter._environment.get("x") is True
+        assert interpreter._environment.get('x') is True
 
     def test_boolean_in_arithmetic(self):
-        program = parse("x = True + 1")
+        program = parse('x = True + 1')
         interpreter = Interpreter()
         interpreter.interpret(program)
         # True is -1 in VBScript
-        assert interpreter._environment.get("x") == 0
+        assert interpreter._environment.get('x') == 0
 
 
 class TestInterpreterIfStatement:
@@ -639,7 +639,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "yes"
+        assert output.getvalue().strip() == 'yes'
 
     def test_if_then_false(self):
         output = io.StringIO()
@@ -652,7 +652,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "done"
+        assert output.getvalue().strip() == 'done'
 
     def test_if_then_else_true(self):
         output = io.StringIO()
@@ -666,7 +666,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "then"
+        assert output.getvalue().strip() == 'then'
 
     def test_if_then_else_false(self):
         output = io.StringIO()
@@ -680,7 +680,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "else"
+        assert output.getvalue().strip() == 'else'
 
     def test_if_elseif_else_first(self):
         output = io.StringIO()
@@ -697,7 +697,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "one"
+        assert output.getvalue().strip() == 'one'
 
     def test_if_elseif_else_second(self):
         output = io.StringIO()
@@ -714,7 +714,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "two"
+        assert output.getvalue().strip() == 'two'
 
     def test_if_elseif_else_fallback(self):
         output = io.StringIO()
@@ -731,7 +731,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "other"
+        assert output.getvalue().strip() == 'other'
 
     def test_if_multiple_elseif(self):
         output = io.StringIO()
@@ -752,7 +752,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "three"
+        assert output.getvalue().strip() == 'three'
 
     def test_if_nested(self):
         output = io.StringIO()
@@ -771,7 +771,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "small"
+        assert output.getvalue().strip() == 'small'
 
     def test_if_case_insensitive(self):
         output = io.StringIO()
@@ -783,7 +783,7 @@ class TestInterpreterIfStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "yes"
+        assert output.getvalue().strip() == 'yes'
 
 
 class TestInterpreterForStatement:
@@ -799,8 +799,8 @@ class TestInterpreterForStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["1", "2", "3"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['1', '2', '3']
 
     def test_for_with_step(self):
         output = io.StringIO()
@@ -812,8 +812,8 @@ class TestInterpreterForStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "2", "4", "6", "8", "10"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '2', '4', '6', '8', '10']
 
     def test_for_negative_step(self):
         output = io.StringIO()
@@ -825,8 +825,8 @@ class TestInterpreterForStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["5", "4", "3", "2", "1"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['5', '4', '3', '2', '1']
 
     def test_for_exit_for(self):
         output = io.StringIO()
@@ -841,8 +841,8 @@ class TestInterpreterForStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['1', '2']
 
     def test_for_nested(self):
         output = io.StringIO()
@@ -856,8 +856,8 @@ class TestInterpreterForStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["1,1", "1,2", "2,1", "2,2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['1,1', '1,2', '2,1', '2,2']
 
     def test_for_variable_after_loop(self):
         program = parse("""
@@ -867,7 +867,7 @@ class TestInterpreterForStatement:
         interpreter = Interpreter()
         interpreter.interpret(program)
         # After loop, i should be 6 (last value + step)
-        assert interpreter._environment.get("i") == 6
+        assert interpreter._environment.get('i') == 6
 
     def test_for_empty_body(self):
         program = parse("""
@@ -876,7 +876,7 @@ class TestInterpreterForStatement:
         """)
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.exists("i")
+        assert interpreter._environment.exists('i')
 
 
 class TestInterpreterWhileStatement:
@@ -894,8 +894,8 @@ class TestInterpreterWhileStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '1', '2']
 
     def test_while_false_initially(self):
         output = io.StringIO()
@@ -908,7 +908,7 @@ class TestInterpreterWhileStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "done"
+        assert output.getvalue().strip() == 'done'
 
     def test_while_nested(self):
         output = io.StringIO()
@@ -926,8 +926,8 @@ class TestInterpreterWhileStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0,0", "0,1", "1,0", "1,1"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0,0', '0,1', '1,0', '1,1']
 
 
 class TestInterpreterDoLoop:
@@ -945,8 +945,8 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '1', '2']
 
     def test_do_until_pre_test(self):
         output = io.StringIO()
@@ -960,8 +960,8 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '1', '2']
 
     def test_do_loop_while_post_test(self):
         output = io.StringIO()
@@ -975,8 +975,8 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '1', '2']
 
     def test_do_loop_until_post_test(self):
         output = io.StringIO()
@@ -990,8 +990,8 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '1', '2']
 
     def test_do_while_post_executes_once(self):
         output = io.StringIO()
@@ -1004,7 +1004,7 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "once"
+        assert output.getvalue().strip() == 'once'
 
     def test_do_until_post_executes_once(self):
         output = io.StringIO()
@@ -1017,7 +1017,7 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "once"
+        assert output.getvalue().strip() == 'once'
 
     def test_do_exit_do(self):
         output = io.StringIO()
@@ -1034,8 +1034,8 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0", "1", "2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0', '1', '2']
 
     def test_do_nested_exit(self):
         output = io.StringIO()
@@ -1059,8 +1059,8 @@ class TestInterpreterDoLoop:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["0,0", "0,1", "1,0", "1,1"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['0,0', '0,1', '1,0', '1,1']
 
 
 class TestInterpreterExitStatement:
@@ -1077,7 +1077,7 @@ class TestInterpreterExitStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "1"
+        assert output.getvalue().strip() == '1'
 
     def test_exit_do_basic(self):
         output = io.StringIO()
@@ -1090,7 +1090,7 @@ class TestInterpreterExitStatement:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "once"
+        assert output.getvalue().strip() == 'once'
 
     def test_exit_for_nested(self):
         output = io.StringIO()
@@ -1107,8 +1107,8 @@ class TestInterpreterExitStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["1,1", "2,1", "3,1"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['1,1', '2,1', '3,1']
 
 
 class TestInterpreterSub:
@@ -1126,7 +1126,7 @@ class TestInterpreterSub:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Hello"
+        assert output.getvalue().strip() == 'Hello'
 
     def test_sub_with_params(self):
         output = io.StringIO()
@@ -1140,7 +1140,7 @@ class TestInterpreterSub:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Hello, World"
+        assert output.getvalue().strip() == 'Hello, World'
 
     def test_sub_call_with_call_keyword(self):
         output = io.StringIO()
@@ -1154,7 +1154,7 @@ class TestInterpreterSub:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Hello"
+        assert output.getvalue().strip() == 'Hello'
 
     def test_sub_exit_sub(self):
         output = io.StringIO()
@@ -1170,8 +1170,8 @@ class TestInterpreterSub:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["Before"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['Before']
 
     def test_sub_local_scope(self):
         output = io.StringIO()
@@ -1192,8 +1192,8 @@ class TestInterpreterSub:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["Inside: 20", "Outside: 10"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['Inside: 20', 'Outside: 10']
 
 
 class TestInterpreterFunction:
@@ -1212,7 +1212,7 @@ class TestInterpreterFunction:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "42"
+        assert output.getvalue().strip() == '42'
 
     def test_function_with_params(self):
         output = io.StringIO()
@@ -1227,7 +1227,7 @@ class TestInterpreterFunction:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "7"
+        assert output.getvalue().strip() == '7'
 
     def test_function_in_expression(self):
         output = io.StringIO()
@@ -1242,7 +1242,7 @@ class TestInterpreterFunction:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "11"
+        assert output.getvalue().strip() == '11'
 
     def test_function_exit_function(self):
         output = io.StringIO()
@@ -1258,7 +1258,7 @@ class TestInterpreterFunction:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "1"
+        assert output.getvalue().strip() == '1'
 
     def test_function_nested_call(self):
         output = io.StringIO()
@@ -1276,7 +1276,7 @@ class TestInterpreterFunction:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "25"
+        assert output.getvalue().strip() == '25'
 
 
 class TestInterpreterByRefByVal:
@@ -1296,7 +1296,7 @@ class TestInterpreterByRefByVal:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "6"
+        assert output.getvalue().strip() == '6'
 
     def test_byval_does_not_modify_original(self):
         output = io.StringIO()
@@ -1312,7 +1312,7 @@ class TestInterpreterByRefByVal:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "5"
+        assert output.getvalue().strip() == '5'
 
     def test_default_is_byref(self):
         output = io.StringIO()
@@ -1329,7 +1329,7 @@ class TestInterpreterByRefByVal:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "20"
+        assert output.getvalue().strip() == '20'
 
     def test_byref_with_expression(self):
         output = io.StringIO()
@@ -1346,7 +1346,7 @@ class TestInterpreterByRefByVal:
             output_stream=output,
         )
         # When passing an expression to ByRef, it should not modify the original
-        assert output.getvalue().strip() == "5"
+        assert output.getvalue().strip() == '5'
 
     def test_mixed_byref_byval(self):
         output = io.StringIO()
@@ -1365,8 +1365,8 @@ class TestInterpreterByRefByVal:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["Inside: 11, 21", "Outside: 11, 20"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['Inside: 11, 21', 'Outside: 11, 20']
 
 
 class TestInterpreterProcedureScoping:
@@ -1386,7 +1386,7 @@ class TestInterpreterProcedureScoping:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "10"
+        assert output.getvalue().strip() == '10'
 
     def test_local_shadows_outer(self):
         output = io.StringIO()
@@ -1406,8 +1406,8 @@ class TestInterpreterProcedureScoping:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["20", "10"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['20', '10']
 
     def test_modify_outer_without_dim(self):
         output = io.StringIO()
@@ -1424,7 +1424,7 @@ class TestInterpreterProcedureScoping:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "20"
+        assert output.getvalue().strip() == '20'
 
     def test_procedure_recursion(self):
         output = io.StringIO()
@@ -1442,7 +1442,7 @@ class TestInterpreterProcedureScoping:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "120"
+        assert output.getvalue().strip() == '120'
 
 
 class TestErrorHandling:
@@ -1459,7 +1459,7 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "After error"
+        assert output.getvalue().strip() == 'After error'
 
     def test_on_error_goto_0_resets_error_handling(self):
         """On Error GoTo 0 should reset error handling to default."""
@@ -1487,7 +1487,7 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "11"  # Division by zero error number
+        assert output.getvalue().strip() == '11'  # Division by zero error number
 
     def test_err_description_after_error(self):
         """Err.Description should contain error message."""
@@ -1500,7 +1500,7 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert "Division by zero" in output.getvalue()
+        assert 'Division by zero' in output.getvalue()
 
     def test_err_clear(self):
         """Err.Clear should reset error information."""
@@ -1516,7 +1516,7 @@ class TestErrorHandling:
             output_stream=output,
         )
         # Just check that we got the error number before clear
-        assert output.getvalue().strip() == "11"
+        assert output.getvalue().strip() == '11'
 
     def test_err_number_zero_initially(self):
         """Err.Number should be 0 initially."""
@@ -1527,11 +1527,11 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "0"
+        assert output.getvalue().strip() == '0'
 
     def test_error_propagates_without_resume_next(self):
         """Errors should propagate without On Error Resume Next."""
-        program = parse("x = 1 / 0")
+        program = parse('x = 1 / 0')
         interpreter = Interpreter()
         with pytest.raises(VBScriptError):
             interpreter.interpret(program)
@@ -1552,9 +1552,9 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert "In sub after error" in lines
-        assert "After sub" in lines
+        lines = output.getvalue().strip().split('\n')
+        assert 'In sub after error' in lines
+        assert 'After sub' in lines
 
     def test_error_mode_resets_on_procedure_exit(self):
         """Error mode should reset when exiting procedure."""
@@ -1590,10 +1590,10 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines[0] == "100"
-        assert lines[1] == "TestSource"
-        assert lines[2] == "Test Description"
+        lines = output.getvalue().strip().split('\n')
+        assert lines[0] == '100'
+        assert lines[1] == 'TestSource'
+        assert lines[2] == 'Test Description'
 
     def test_multiple_errors_resume_next(self):
         """Multiple errors should each set Err object."""
@@ -1608,8 +1608,8 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines[0] == "11"  # Division by zero
+        lines = output.getvalue().strip().split('\n')
+        assert lines[0] == '11'  # Division by zero
         # Second error number may vary
 
     def test_type_mismatch_error_number(self):
@@ -1623,7 +1623,7 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "13"
+        assert output.getvalue().strip() == '13'
 
     def test_err_source_after_error(self):
         """Err.Source should be set after an error."""
@@ -1636,7 +1636,7 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert "VBScript" in output.getvalue()
+        assert 'VBScript' in output.getvalue()
 
     def test_case_insensitive_on_error(self):
         """On Error statements should be case insensitive."""
@@ -1649,7 +1649,7 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Works"
+        assert output.getvalue().strip() == 'Works'
 
     def test_case_insensitive_err_object(self):
         """Err object access should be case insensitive."""
@@ -1663,9 +1663,9 @@ class TestErrorHandling:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines[0] == "11"
-        assert lines[1] == "11"
+        lines = output.getvalue().strip().split('\n')
+        assert lines[0] == '11'
+        assert lines[1] == '11'
 
 
 class TestSelectCase:
@@ -1688,7 +1688,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "two"
+        assert output.getvalue().strip() == 'two'
 
     def test_no_match_no_else(self):
         output = io.StringIO()
@@ -1705,7 +1705,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == ""
+        assert output.getvalue().strip() == ''
 
     def test_case_else(self):
         output = io.StringIO()
@@ -1722,7 +1722,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "other"
+        assert output.getvalue().strip() == 'other'
 
     def test_comma_separated_values(self):
         output = io.StringIO()
@@ -1741,7 +1741,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "medium"
+        assert output.getvalue().strip() == 'medium'
 
     def test_relational_checks_with_true(self):
         output = io.StringIO()
@@ -1762,7 +1762,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "B"
+        assert output.getvalue().strip() == 'B'
 
     def test_string_matching(self):
         output = io.StringIO()
@@ -1781,7 +1781,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "tropical"
+        assert output.getvalue().strip() == 'tropical'
 
     def test_select_case_in_sub(self):
         output = io.StringIO()
@@ -1804,8 +1804,8 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["negative", "zero", "positive"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['negative', 'zero', 'positive']
 
     def test_select_case_first_match_wins(self):
         output = io.StringIO()
@@ -1824,7 +1824,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "positive"
+        assert output.getvalue().strip() == 'positive'
 
     def test_select_case_with_assignment_in_body(self):
         output = io.StringIO()
@@ -1844,7 +1844,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "b"
+        assert output.getvalue().strip() == 'b'
 
     def test_select_case_multiple_statements_in_body(self):
         output = io.StringIO()
@@ -1862,8 +1862,8 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split("\n")
-        assert lines == ["line1", "line2"]
+        lines = output.getvalue().strip().split('\n')
+        assert lines == ['line1', 'line2']
 
     def test_select_case_string_comma_list_with_grade(self):
         output = io.StringIO()
@@ -1885,7 +1885,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Score 85 = Grade B"
+        assert output.getvalue().strip() == 'Score 85 = Grade B'
 
     def test_select_case_relational_with_else(self):
         output = io.StringIO()
@@ -1907,7 +1907,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "Score 95 = Excellent"
+        assert output.getvalue().strip() == 'Score 95 = Excellent'
 
     def test_case_insensitive_select_case(self):
         output = io.StringIO()
@@ -1922,7 +1922,7 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "matched"
+        assert output.getvalue().strip() == 'matched'
 
     def test_nested_select_case(self):
         output = io.StringIO()
@@ -1945,4 +1945,4 @@ class TestSelectCase:
         """,
             output_stream=output,
         )
-        assert output.getvalue().strip() == "1-2"
+        assert output.getvalue().strip() == '1-2'

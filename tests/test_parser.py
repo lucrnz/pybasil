@@ -39,22 +39,22 @@ class TestParserLiterals:
     """Test parsing of literal values."""
 
     def test_parse_integer(self):
-        program = parse("x = 42")
+        program = parse('x = 42')
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, AssignmentStatement)
-        assert stmt.variable == "x"
+        assert stmt.variable == 'x'
         assert isinstance(stmt.expression, NumberLiteral)
         assert stmt.expression.value == 42
 
     def test_parse_float(self):
-        program = parse("x = 3.14")
+        program = parse('x = 3.14')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, NumberLiteral)
         assert stmt.expression.value == 3.14
 
     def test_parse_scientific_notation(self):
-        program = parse("x = 1.5e10")
+        program = parse('x = 1.5e10')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, NumberLiteral)
         assert stmt.expression.value == 1.5e10
@@ -63,49 +63,49 @@ class TestParserLiterals:
         program = parse('x = "Hello, World!"')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, StringLiteral)
-        assert stmt.expression.value == "Hello, World!"
+        assert stmt.expression.value == 'Hello, World!'
 
     def test_parse_empty_string(self):
         program = parse('x = ""')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, StringLiteral)
-        assert stmt.expression.value == ""
+        assert stmt.expression.value == ''
 
     def test_parse_true(self):
-        program = parse("x = True")
+        program = parse('x = True')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, BooleanLiteral)
         assert stmt.expression.value is True
 
     def test_parse_false(self):
-        program = parse("x = False")
+        program = parse('x = False')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, BooleanLiteral)
         assert stmt.expression.value is False
 
     def test_parse_nothing(self):
-        program = parse("x = Nothing")
+        program = parse('x = Nothing')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, NothingLiteral)
 
     def test_parse_empty(self):
-        program = parse("x = Empty")
+        program = parse('x = Empty')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, EmptyLiteral)
 
     def test_parse_null(self):
-        program = parse("x = Null")
+        program = parse('x = Null')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, NullLiteral)
 
     def test_case_insensitive_true(self):
-        program = parse("x = true")
+        program = parse('x = true')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, BooleanLiteral)
         assert stmt.expression.value is True
 
     def test_case_insensitive_false(self):
-        program = parse("x = FALSE")
+        program = parse('x = FALSE')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, BooleanLiteral)
         assert stmt.expression.value is False
@@ -115,104 +115,104 @@ class TestParserVariables:
     """Test parsing of variable declarations and lookups."""
 
     def test_parse_dim_single(self):
-        program = parse("Dim x")
+        program = parse('Dim x')
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, DimStatement)
         assert len(stmt.variables) == 1
-        assert stmt.variables[0].name == "x"
+        assert stmt.variables[0].name == 'x'
         assert stmt.variables[0].dimensions is None
 
     def test_parse_dim_multiple(self):
-        program = parse("Dim x, y, z")
+        program = parse('Dim x, y, z')
         stmt = program.statements[0]
         assert isinstance(stmt, DimStatement)
         assert len(stmt.variables) == 3
-        assert stmt.variables[0].name == "x"
-        assert stmt.variables[1].name == "y"
-        assert stmt.variables[2].name == "z"
+        assert stmt.variables[0].name == 'x'
+        assert stmt.variables[1].name == 'y'
+        assert stmt.variables[2].name == 'z'
 
     def test_parse_dim_case_insensitive(self):
-        program = parse("DIM x, Y, Z")
+        program = parse('DIM x, Y, Z')
         stmt = program.statements[0]
         assert isinstance(stmt, DimStatement)
         assert len(stmt.variables) == 3
-        assert stmt.variables[0].name == "x"
-        assert stmt.variables[1].name == "Y"
-        assert stmt.variables[2].name == "Z"
+        assert stmt.variables[0].name == 'x'
+        assert stmt.variables[1].name == 'Y'
+        assert stmt.variables[2].name == 'Z'
 
     def test_parse_assignment(self):
-        program = parse("x = 42")
+        program = parse('x = 42')
         stmt = program.statements[0]
         assert isinstance(stmt, AssignmentStatement)
-        assert stmt.variable == "x"
+        assert stmt.variable == 'x'
 
     def test_parse_assignment_with_let(self):
-        program = parse("Let x = 42")
+        program = parse('Let x = 42')
         stmt = program.statements[0]
         assert isinstance(stmt, AssignmentStatement)
-        assert stmt.variable == "x"
+        assert stmt.variable == 'x'
 
     def test_parse_set_statement(self):
         program = parse('Set obj = CreateObject("Scripting.FileSystemObject")')
         stmt = program.statements[0]
         assert isinstance(stmt, SetStatement)
-        assert stmt.variable == "obj"
+        assert stmt.variable == 'obj'
 
     def test_parse_variable_lookup(self):
-        program = parse("x = y")
+        program = parse('x = y')
         stmt = program.statements[0]
         assert isinstance(stmt.expression, Identifier)
-        assert stmt.expression.name == "y"
+        assert stmt.expression.name == 'y'
 
 
 class TestParserOperators:
     """Test parsing of operators."""
 
     def test_parse_addition(self):
-        program = parse("x = 1 + 2")
+        program = parse('x = 1 + 2')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.ADD
 
     def test_parse_subtraction(self):
-        program = parse("x = 5 - 3")
+        program = parse('x = 5 - 3')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.SUB
 
     def test_parse_multiplication(self):
-        program = parse("x = 4 * 2")
+        program = parse('x = 4 * 2')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.MUL
 
     def test_parse_division(self):
-        program = parse("x = 10 / 2")
+        program = parse('x = 10 / 2')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.DIV
 
     def test_parse_integer_division(self):
-        program = parse("x = 10 \\ 3")
+        program = parse('x = 10 \\ 3')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.INTDIV
 
     def test_parse_modulo(self):
-        program = parse("x = 10 Mod 3")
+        program = parse('x = 10 Mod 3')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.MOD
 
     def test_parse_exponentiation(self):
-        program = parse("x = 2 ^ 3")
+        program = parse('x = 2 ^ 3')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
@@ -226,49 +226,49 @@ class TestParserOperators:
         assert expr.operator == BinaryOp.CONCAT
 
     def test_parse_negation(self):
-        program = parse("x = -5")
+        program = parse('x = -5')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, UnaryExpression)
         assert expr.operator == UnaryOp.NEG
 
     def test_parse_not(self):
-        program = parse("x = Not True")
+        program = parse('x = Not True')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, UnaryExpression)
         assert expr.operator == UnaryOp.NOT
 
     def test_parse_and(self):
-        program = parse("x = True And False")
+        program = parse('x = True And False')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.AND
 
     def test_parse_or(self):
-        program = parse("x = True Or False")
+        program = parse('x = True Or False')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.OR
 
     def test_parse_xor(self):
-        program = parse("x = True Xor False")
+        program = parse('x = True Xor False')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.XOR
 
     def test_parse_eqv(self):
-        program = parse("x = True Eqv False")
+        program = parse('x = True Eqv False')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
         assert expr.operator == BinaryOp.EQV
 
     def test_parse_imp(self):
-        program = parse("x = True Imp False")
+        program = parse('x = True Imp False')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, BinaryExpression)
@@ -279,49 +279,49 @@ class TestParserComparisons:
     """Test parsing of comparison operators."""
 
     def test_parse_equals(self):
-        program = parse("x = (a = b)")
+        program = parse('x = (a = b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
         assert expr.operator == ComparisonOp.EQ
 
     def test_parse_not_equals(self):
-        program = parse("x = (a <> b)")
+        program = parse('x = (a <> b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
         assert expr.operator == ComparisonOp.NE
 
     def test_parse_less_than(self):
-        program = parse("x = (a < b)")
+        program = parse('x = (a < b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
         assert expr.operator == ComparisonOp.LT
 
     def test_parse_greater_than(self):
-        program = parse("x = (a > b)")
+        program = parse('x = (a > b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
         assert expr.operator == ComparisonOp.GT
 
     def test_parse_less_equal(self):
-        program = parse("x = (a <= b)")
+        program = parse('x = (a <= b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
         assert expr.operator == ComparisonOp.LE
 
     def test_parse_greater_equal(self):
-        program = parse("x = (a >= b)")
+        program = parse('x = (a >= b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
         assert expr.operator == ComparisonOp.GE
 
     def test_parse_is(self):
-        program = parse("x = (a Is b)")
+        program = parse('x = (a Is b)')
         stmt = program.statements[0]
         expr = stmt.expression
         assert isinstance(expr, ComparisonExpression)
@@ -332,7 +332,7 @@ class TestParserPrecedence:
     """Test operator precedence."""
 
     def test_multiplication_before_addition(self):
-        program = parse("x = 1 + 2 * 3")
+        program = parse('x = 1 + 2 * 3')
         stmt = program.statements[0]
         expr = stmt.expression
         # Should be: 1 + (2 * 3)
@@ -342,7 +342,7 @@ class TestParserPrecedence:
         assert expr.right.operator == BinaryOp.MUL
 
     def test_exponentiation_right_associative(self):
-        program = parse("x = 2 ^ 3 ^ 2")
+        program = parse('x = 2 ^ 3 ^ 2')
         stmt = program.statements[0]
         expr = stmt.expression
         # Should be: 2 ^ (3 ^ 2) = 2 ^ 9 = 512
@@ -350,7 +350,7 @@ class TestParserPrecedence:
         assert expr.operator == BinaryOp.POW
 
     def test_parentheses_override_precedence(self):
-        program = parse("x = (1 + 2) * 3")
+        program = parse('x = (1 + 2) * 3')
         stmt = program.statements[0]
         expr = stmt.expression
         # Should be: (1 + 2) * 3
@@ -370,7 +370,7 @@ class TestParserComments:
         assert isinstance(stmt, AssignmentStatement)
 
     def test_rem_comment(self):
-        program = parse("x = 5 Rem This is a comment")
+        program = parse('x = 5 Rem This is a comment')
         assert len(program.statements) == 1
 
     def test_comment_only_line(self):
@@ -478,7 +478,7 @@ class TestParserForStatement:
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, ForStatement)
-        assert stmt.variable == "i"
+        assert stmt.variable == 'i'
         assert isinstance(stmt.start, NumberLiteral)
         assert stmt.start.value == 1
         assert isinstance(stmt.end, NumberLiteral)
@@ -620,14 +620,14 @@ class TestParserExitStatement:
     """Test parsing of Exit statements."""
 
     def test_parse_exit_for(self):
-        program = parse("Exit For")
+        program = parse('Exit For')
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, ExitStatement)
         assert stmt.exit_type == ExitType.FOR
 
     def test_parse_exit_do(self):
-        program = parse("Exit Do")
+        program = parse('Exit Do')
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, ExitStatement)
@@ -668,7 +668,7 @@ class TestParserSubStatement:
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, SubStatement)
-        assert stmt.name == "SayHello"
+        assert stmt.name == 'SayHello'
         assert len(stmt.parameters) == 0
         assert len(stmt.body) == 1
 
@@ -680,10 +680,10 @@ class TestParserSubStatement:
         """)
         stmt = program.statements[0]
         assert isinstance(stmt, SubStatement)
-        assert stmt.name == "Greet"
+        assert stmt.name == 'Greet'
         assert len(stmt.parameters) == 1
         assert isinstance(stmt.parameters[0], Parameter)
-        assert stmt.parameters[0].name == "name"
+        assert stmt.parameters[0].name == 'name'
 
     def test_parse_sub_with_byref_param(self):
         program = parse("""
@@ -732,7 +732,7 @@ class TestParserFunctionStatement:
         assert len(program.statements) == 1
         stmt = program.statements[0]
         assert isinstance(stmt, FunctionStatement)
-        assert stmt.name == "GetAnswer"
+        assert stmt.name == 'GetAnswer'
         assert len(stmt.parameters) == 0
 
     def test_parse_function_with_params(self):
@@ -743,7 +743,7 @@ class TestParserFunctionStatement:
         """)
         stmt = program.statements[0]
         assert isinstance(stmt, FunctionStatement)
-        assert stmt.name == "Add"
+        assert stmt.name == 'Add'
         assert len(stmt.parameters) == 2
 
     def test_parse_function_with_mixed_params(self):
@@ -767,21 +767,21 @@ class TestParserCallStatement:
         program = parse('Call MySub("Hello")')
         stmt = program.statements[0]
         assert isinstance(stmt, CallStatement)
-        assert stmt.name == "MySub"
+        assert stmt.name == 'MySub'
         assert len(stmt.arguments) == 1
 
     def test_parse_call_no_args(self):
-        program = parse("Call MySub()")
+        program = parse('Call MySub()')
         stmt = program.statements[0]
         assert isinstance(stmt, CallStatement)
-        assert stmt.name == "MySub"
+        assert stmt.name == 'MySub'
         assert len(stmt.arguments) == 0
 
     def test_parse_call_multiple_args(self):
         program = parse('Call MySub("Hello", "World", 42)')
         stmt = program.statements[0]
         assert isinstance(stmt, CallStatement)
-        assert stmt.name == "MySub"
+        assert stmt.name == 'MySub'
         assert len(stmt.arguments) == 3
 
     def test_parse_implicit_call(self):
