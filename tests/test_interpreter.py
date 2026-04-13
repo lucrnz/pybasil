@@ -641,6 +641,15 @@ class TestInterpreterBuiltins:
 class TestInterpreterEdgeCases:
     """Test edge cases and special behaviors."""
 
+    def test_empty_plus_empty(self):
+        program = parse("""
+            Dim x, y
+            z = x + y
+        """)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('z') == 0
+
     def test_empty_in_arithmetic(self):
         program = parse('x = Empty + 5')
         interpreter = Interpreter()

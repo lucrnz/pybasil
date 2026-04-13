@@ -1682,9 +1682,11 @@ class Interpreter:
     def _apply_binary_op(self, op: BinaryOp, left: Any, right: Any) -> Any:
         """Apply a binary operator."""
         # Handle Empty values
-        if isinstance(left, VBScriptEmpty):
+        if isinstance(left, VBScriptEmpty) and isinstance(right, VBScriptEmpty):
+            left, right = 0, 0
+        elif isinstance(left, VBScriptEmpty):
             left = 0 if isinstance(right, (int, float)) else ''
-        if isinstance(right, VBScriptEmpty):
+        elif isinstance(right, VBScriptEmpty):
             right = 0 if isinstance(left, (int, float)) else ''
 
         # Handle Null propagation
