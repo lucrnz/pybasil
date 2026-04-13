@@ -325,7 +325,7 @@ class VBScriptDictionary:
         """Returns an array containing all items."""
         items = [self._data[k] for k in self._key_order]
         if len(items) == 0:
-            return VBScriptArray([0], is_dynamic=True)
+            return VBScriptArray([-1], is_dynamic=True)
         arr = VBScriptArray([len(items) - 1], is_dynamic=False)
         for i, item in enumerate(items):
             arr.set_element([i], item)
@@ -338,7 +338,7 @@ class VBScriptDictionary:
             # Find the original key (preserve case)
             keys.append(k)
         if len(keys) == 0:
-            return VBScriptArray([0], is_dynamic=True)
+            return VBScriptArray([-1], is_dynamic=True)
         arr = VBScriptArray([len(keys) - 1], is_dynamic=False)
         for i, key in enumerate(keys):
             arr.set_element([i], key)

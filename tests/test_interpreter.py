@@ -6,6 +6,7 @@ from pybasil import (
     Interpreter,
     parse,
     run,
+    VBScriptArray,
     VBScriptError,
     EMPTY,
     NULL,
@@ -1108,6 +1109,20 @@ class TestInterpreterForEachDictionary:
         )
         lines = output.getvalue().strip().split('\n')
         assert lines == ['42', '99']
+
+    def test_empty_dictionary_items_returns_empty_array(self):
+        from pybasil.interpreter import VBScriptDictionary
+        d = VBScriptDictionary()
+        arr = d.Items()
+        assert isinstance(arr, VBScriptArray)
+        assert arr.ubound() == -1
+
+    def test_empty_dictionary_keys_returns_empty_array(self):
+        from pybasil.interpreter import VBScriptDictionary
+        d = VBScriptDictionary()
+        arr = d.Keys()
+        assert isinstance(arr, VBScriptArray)
+        assert arr.ubound() == -1
 
 
 class TestInterpreterWhileStatement:
