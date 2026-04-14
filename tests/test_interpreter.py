@@ -2223,6 +2223,36 @@ class TestSelectCase:
         assert output.getvalue().strip() == '1-2'
 
 
+class TestErrNotClearedInDefaultMode:
+    """Test that Err is not cleared before every statement in DEFAULT mode."""
+
+    def test_err_number_persists_in_resume_next(self):
+        output = io.StringIO()
+        run(
+            '''On Error Resume Next
+x = 1 / 0
+y = Err.Number
+WScript.Echo y
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == '11'
+
+    def test_err_cleared_on_mode_transition(self):
+        output = io.StringIO()
+        run(
+            '''On Error Resume Next
+x = 1 / 0
+On Error GoTo 0
+On Error Resume Next
+y = Err.Number
+WScript.Echo y
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == '0'
+
+
 class TestDictionaryKeyCasePreservation:
     """Tests for preserving original key case in Dictionary.Keys() with CompareMode=1."""
 

@@ -708,10 +708,6 @@ class Interpreter:
 
     def _execute_with_error_handling(self, node: ASTNode) -> Any:
         """Execute a statement with error handling based on current mode."""
-        # Clear any previous error before executing a new statement
-        if self._error_mode == ErrorHandlingMode.DEFAULT:
-            self._err.Clear()
-
         try:
             return self._execute(node)
         except VBScriptError as e:
@@ -1374,6 +1370,7 @@ class Interpreter:
     ) -> None:
         """Execute On Error Resume Next statement."""
         self._error_mode = ErrorHandlingMode.RESUME_NEXT
+        self._err.Clear()
 
     def _execute_OnErrorGoToStatement(self, node: OnErrorGoToStatement) -> None:
         """Execute On Error GoTo statement."""
@@ -1383,6 +1380,7 @@ class Interpreter:
         else:
             # On Error GoTo label - set goto mode (line number not fully supported)
             self._error_mode = ErrorHandlingMode.GOTO
+        self._err.Clear()
 
     def _execute_ReDimStatement(self, node: ReDimStatement) -> None:
         """Execute a ReDim statement."""
