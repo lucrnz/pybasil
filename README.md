@@ -1,10 +1,10 @@
 # pybasil
 
-A VBScript parser and interpreter written in Python, focused on a practical and tested subset of the language for migration and automation workflows.
+A VBScript parser and interpreter written in Python, aiming for full compatibility with VBScript 6.0 and beyond.
 
 ## Current Support
 
-- **Tree-walking interpreter** for a tested VBScript subset
+- **Tree-walking interpreter** targeting full VBScript 6.0 compatibility
 - **Variables & literals**:
   - Variables are case-insensitive
   - Implicit variable creation is supported (`Empty` default)
