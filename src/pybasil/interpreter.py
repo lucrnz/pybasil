@@ -2027,10 +2027,34 @@ class Interpreter:
         s = self._to_string(string)
         f = self._to_string(find)
         r = self._to_string(replace_with)
-        if count > 0:
-            return s.replace(f, r, count)
+        start_val = int(start)
+        count_val = int(count)
+        compare_val = int(compare)
+
+        # VBScript Replace returns the substring starting at 'start'
+        s = s[start_val - 1:]
+
+        if compare_val == 1:
+            # Case-insensitive replace
+            result = []
+            lower_s = s.lower()
+            lower_f = f.lower()
+            i = 0
+            replacements = 0
+            while i < len(s):
+                if lower_s[i:i + len(lower_f)] == lower_f and (count_val < 0 or replacements < count_val):
+                    result.append(r)
+                    i += len(f)
+                    replacements += 1
+                else:
+                    result.append(s[i])
+                    i += 1
+            return ''.join(result)
         else:
-            return s.replace(f, r)
+            if count_val >= 0:
+                return s.replace(f, r, count_val)
+            else:
+                return s.replace(f, r)
 
     def _builtin_split(
         self, string: str, delimiter: str = ' ', count: int = -1, compare: int = 0

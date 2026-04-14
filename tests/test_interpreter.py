@@ -2223,6 +2223,34 @@ class TestSelectCase:
         assert output.getvalue().strip() == '1-2'
 
 
+class TestReplaceParams:
+    """Tests for Replace builtin with start, count, and compare params."""
+
+    def test_replace_with_count(self):
+        program = parse('x = Replace("aaa", "a", "b", 1, 2)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'bba'
+
+    def test_replace_with_start(self):
+        program = parse('x = Replace("hello world", "o", "0", 5)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == '0 w0rld'
+
+    def test_replace_case_insensitive(self):
+        program = parse('x = Replace("Hello HELLO", "hello", "bye", 1, -1, 1)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'bye bye'
+
+    def test_replace_case_insensitive_with_count(self):
+        program = parse('x = Replace("aAbBaA", "a", "x", 1, 2, 1)')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 'xxbBaA'
+
+
 class TestHexOctalLiterals:
     """Tests for &H hex and &O octal literal support."""
 
