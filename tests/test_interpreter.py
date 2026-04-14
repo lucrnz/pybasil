@@ -2221,3 +2221,12 @@ class TestSelectCase:
             output_stream=output,
         )
         assert output.getvalue().strip() == '1-2'
+
+
+class TestBuiltinsDictIntegrity:
+    """Ensure builtins dictionary has no issues."""
+
+    def test_isnumeric_registered_once(self):
+        interpreter = Interpreter()
+        assert 'isnumeric' in interpreter._builtins
+        assert interpreter._builtins['isnumeric'] is not None
