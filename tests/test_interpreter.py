@@ -2223,6 +2223,98 @@ class TestSelectCase:
         assert output.getvalue().strip() == '1-2'
 
 
+class TestSelectCaseRangeAndIs:
+    """Tests for Case x To y and Case Is <op> expr in Select Case."""
+
+    def test_case_range_match(self):
+        output = io.StringIO()
+        run(
+            '''Dim x
+x = 5
+Select Case x
+    Case 1 To 3
+        WScript.Echo "low"
+    Case 4 To 7
+        WScript.Echo "mid"
+    Case Else
+        WScript.Echo "other"
+End Select
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'mid'
+
+    def test_case_range_no_match(self):
+        output = io.StringIO()
+        run(
+            '''Dim x
+x = 10
+Select Case x
+    Case 1 To 3
+        WScript.Echo "low"
+    Case 4 To 7
+        WScript.Echo "mid"
+    Case Else
+        WScript.Echo "other"
+End Select
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'other'
+
+    def test_case_is_greater_than(self):
+        output = io.StringIO()
+        run(
+            '''Dim x
+x = 10
+Select Case x
+    Case Is > 5
+        WScript.Echo "big"
+    Case Else
+        WScript.Echo "small"
+End Select
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'big'
+
+    def test_case_is_less_than(self):
+        output = io.StringIO()
+        run(
+            '''Dim x
+x = 2
+Select Case x
+    Case Is < 5
+        WScript.Echo "small"
+    Case Else
+        WScript.Echo "big"
+End Select
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'small'
+
+    def test_case_mixed_range_is_value(self):
+        output = io.StringIO()
+        run(
+            '''Dim x
+x = 15
+Select Case x
+    Case 1 To 5
+        WScript.Echo "1-5"
+    Case 6, 7, 8
+        WScript.Echo "6-8"
+    Case Is >= 10
+        WScript.Echo ">=10"
+    Case Else
+        WScript.Echo "other"
+End Select
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == '>=10'
+
+
 class TestSplitCount:
     """Tests for Split with count parameter."""
 

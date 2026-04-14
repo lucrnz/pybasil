@@ -31,6 +31,8 @@ from .ast_nodes import (
     ExpressionStatement,
     IfStatement,
     SelectCaseStatement,
+    CaseRange,
+    CaseComparison,
     ForStatement,
     ForEachStatement,
     WhileStatement,
@@ -1123,29 +1125,28 @@ class Interpreter:
         for case_clause in node.case_clauses:
             # Check if any of the case values match
             for case_value_node in case_clause.values:
-                case_value = self._evaluate(case_value_node)
+                matched = False
 
-                # VBScript Select Case has two matching modes:
-                # 1. Value matching: Select Case x with Case 1, 2, 3
-                # 2. Expression matching: Select Case True with Case x > 10 (evaluates to True/False)
-                #
-                # When select_value is a boolean (True or False), we compare directly
-                # Otherwise, we use value equality
-
-                if isinstance(select_value, bool):
-                    # Expression matching mode - compare boolean values
-                    if self._to_boolean(case_value) == select_value:
-                        # Execute the case body
-                        for stmt in case_clause.body:
-                            self._execute_with_error_handling(stmt)
-                        return None
+                if isinstance(case_value_node, CaseRange):
+                    low = self._evaluate(case_value_node.low)
+                    high = self._evaluate(case_value_node.high)
+                    matched = (self._to_number(low) <= self._to_number(select_value)
+                               <= self._to_number(high))
+                elif isinstance(case_value_node, CaseComparison):
+                    comp_value = self._evaluate(case_value_node.expression)
+                    matched = self._apply_comparison_op(
+                        case_value_node.operator, select_value, comp_value)
                 else:
-                    # Value matching mode - compare for equality
-                    if self._values_equal(select_value, case_value):
-                        # Execute the case body
-                        for stmt in case_clause.body:
-                            self._execute_with_error_handling(stmt)
-                        return None
+                    case_value = self._evaluate(case_value_node)
+                    if isinstance(select_value, bool):
+                        matched = self._to_boolean(case_value) == select_value
+                    else:
+                        matched = self._values_equal(select_value, case_value)
+
+                if matched:
+                    for stmt in case_clause.body:
+                        self._execute_with_error_handling(stmt)
+                    return None
 
         # Execute Case Else if no match found
         if node.case_else_clause:

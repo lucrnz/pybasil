@@ -37,6 +37,8 @@ from .ast_nodes import (
     ElseIfClause,
     ElseClause,
     CaseClause,
+    CaseRange,
+    CaseComparison,
     CaseElseClause,
     SelectCaseStatement,
     ForStatement,
@@ -569,6 +571,8 @@ class VBScriptTransformer(Transformer):
             MethodCall,
             NewExpression,
             ArrayAccess,
+            CaseRange,
+            CaseComparison,
         )
 
         # Statement types that indicate this is the body
@@ -625,6 +629,20 @@ class VBScriptTransformer(Transformer):
     def case_values(self, items: List) -> List[ASTNode]:
         """Transform case values list."""
         return items
+
+    def case_value(self, items: List) -> ASTNode:
+        """Transform a plain case value (passthrough)."""
+        return items[0]
+
+    def case_range(self, items: List) -> CaseRange:
+        """Transform Case x To y."""
+        filtered = [item for item in items if not isinstance(item, Token)]
+        return CaseRange(low=filtered[0], high=filtered[1])
+
+    def case_is(self, items: List) -> CaseComparison:
+        """Transform Case Is <op> <expr>."""
+        filtered = [item for item in items if not isinstance(item, Token)]
+        return CaseComparison(operator=filtered[0], expression=filtered[1])
 
     def case_else_clause(self, items: List) -> CaseElseClause:
         """Transform Case Else clause."""

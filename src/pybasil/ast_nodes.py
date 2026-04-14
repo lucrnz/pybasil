@@ -250,10 +250,26 @@ class IfStatement(ASTNode):
 
 
 @dataclass
+class CaseRange(ASTNode):
+    """A Case range expression like Case 1 To 10."""
+
+    low: ASTNode
+    high: ASTNode
+
+
+@dataclass
+class CaseComparison(ASTNode):
+    """A Case Is comparison like Case Is > 5."""
+
+    operator: ComparisonOp
+    expression: ASTNode
+
+
+@dataclass
 class CaseClause(ASTNode):
     """A Case clause in a Select Case statement."""
 
-    values: List[ASTNode]  # List of values to match
+    values: List[ASTNode]  # List of values, CaseRange, or CaseComparison to match
     body: List[ASTNode]
 
 

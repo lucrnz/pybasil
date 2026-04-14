@@ -62,7 +62,10 @@ else_clause: ELSE_KW block
 // Select Case statement: Select Case expr ... Case values ... [Case Else ...] End Select
 select_case_statement: SELECT_KW CASE_KW expression _NL case_clause* case_else_clause? END_KW SELECT_KW
 case_clause: CASE_KW case_values _NL block
-case_values: expression ("," expression)*
+case_values: case_value ("," case_value)*
+case_value: expression TO_KW expression  -> case_range
+          | IS_KW comparison_op expression  -> case_is
+          | expression
 case_else_clause: CASE_KW ELSE_KW _NL block
 
 // Block of statements (does not include procedure definitions)
