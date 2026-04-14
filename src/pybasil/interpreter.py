@@ -286,10 +286,9 @@ class VBScriptDictionary:
     """VBScript Scripting.Dictionary implementation."""
 
     def __init__(self):
-        self._data: Dict[
-            str, Any
-        ] = {}  # Keys are stored lowercase for case-insensitivity
-        self._key_order: List[str] = []  # Preserve insertion order
+        self._data: Dict[str, Any] = {}  # normalized key -> value
+        self._key_order: List[str] = []  # normalized keys in insertion order
+        self._original_keys: Dict[str, str] = {}  # normalized key -> original key
         self._compare_mode: int = (
             0  # 0 = binary (case-sensitive), 1 = text (case-insensitive)
         )
@@ -308,6 +307,10 @@ class VBScriptDictionary:
         """Returns the number of key-item pairs."""
         return len(self._data)
 
+    def _to_str_key(self, key: Any) -> str:
+        """Convert key to its string representation (without normalization)."""
+        return key if isinstance(key, str) else str(key)
+
     def Add(self, key: Any, item: Any) -> None:
         """Add a key-item pair to the dictionary."""
         norm_key = self._normalize_key(key)
@@ -317,6 +320,7 @@ class VBScriptDictionary:
             )
         self._data[norm_key] = item
         self._key_order.append(norm_key)
+        self._original_keys[norm_key] = self._to_str_key(key)
 
     def Exists(self, key: Any) -> bool:
         """Returns True if the key exists in the dictionary."""
@@ -335,10 +339,7 @@ class VBScriptDictionary:
 
     def Keys(self) -> VBScriptArray:
         """Returns an array containing all keys."""
-        keys = []
-        for k in self._key_order:
-            # Find the original key (preserve case)
-            keys.append(k)
+        keys = [self._original_keys.get(k, k) for k in self._key_order]
         if len(keys) == 0:
             return VBScriptArray([-1], is_dynamic=True)
         arr = VBScriptArray([len(keys) - 1], is_dynamic=False)
@@ -355,11 +356,13 @@ class VBScriptDictionary:
             )
         del self._data[norm_key]
         self._key_order.remove(norm_key)
+        self._original_keys.pop(norm_key, None)
 
     def RemoveAll(self) -> None:
         """Remove all key-item pairs from the dictionary."""
         self._data.clear()
         self._key_order.clear()
+        self._original_keys.clear()
 
     @property
     def CompareMode(self) -> int:
@@ -379,6 +382,7 @@ class VBScriptDictionary:
             # VBScript creates empty entry for non-existent key access
             self._data[norm_key] = EMPTY
             self._key_order.append(norm_key)
+            self._original_keys[norm_key] = self._to_str_key(key)
             return EMPTY
         return self._data[norm_key]
 
@@ -387,6 +391,7 @@ class VBScriptDictionary:
         norm_key = self._normalize_key(key)
         if norm_key not in self._data:
             self._key_order.append(norm_key)
+            self._original_keys[norm_key] = self._to_str_key(key)
         self._data[norm_key] = value
 
     def get_key(self, key: Any) -> Any:
@@ -396,7 +401,7 @@ class VBScriptDictionary:
             raise VBScriptError(
                 'This key is not associated with an element of this collection'
             )
-        return norm_key
+        return self._original_keys.get(norm_key, norm_key)
 
     def set_key(self, old_key: Any, new_key: Any) -> None:
         """Change a key value."""
@@ -417,14 +422,16 @@ class VBScriptDictionary:
         del self._data[norm_old]
         self._data[norm_new] = item
 
-        # Update key order
+        # Update key order and original key mapping
         idx = self._key_order.index(norm_old)
         self._key_order[idx] = norm_new
+        self._original_keys.pop(norm_old, None)
+        self._original_keys[norm_new] = self._to_str_key(new_key)
 
     def __iter__(self):
         """Iterate over keys (for For Each)."""
         for key in self._key_order:
-            yield key
+            yield self._original_keys.get(key, key)
 
 
 class ErrObject:
