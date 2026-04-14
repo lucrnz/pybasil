@@ -2223,6 +2223,30 @@ class TestSelectCase:
         assert output.getvalue().strip() == '1-2'
 
 
+class TestArrayBuiltin:
+    """Tests for the Array() builtin function."""
+
+    def test_array_no_args_returns_empty_array(self):
+        interpreter = Interpreter()
+        result = interpreter._builtin_array()
+        assert isinstance(result, VBScriptArray)
+        assert result.ubound() == -1
+
+    def test_array_with_args(self):
+        code = '''Dim a
+a = Array(10, 20, 30)
+x = a(0)
+y = a(2)
+u = UBound(a)
+'''
+        program = parse(code)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 10
+        assert interpreter._environment.get('y') == 30
+        assert interpreter._environment.get('u') == 2
+
+
 class TestBuiltinsDictIntegrity:
     """Ensure builtins dictionary has no issues."""
 

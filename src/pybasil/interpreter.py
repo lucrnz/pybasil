@@ -2227,8 +2227,8 @@ class Interpreter:
     def _builtin_array(self, *args) -> VBScriptArray:
         """Array function - creates a variant array from the given values."""
         if len(args) == 0:
-            # Empty array
-            arr = VBScriptArray([0], is_dynamic=True)
+            # Empty array (UBound = -1)
+            arr = VBScriptArray([-1], is_dynamic=True)
             return arr
 
         # Create array with upper bound = len(args) - 1
