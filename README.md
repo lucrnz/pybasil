@@ -9,7 +9,7 @@ A VBScript parser and interpreter written in Python, aiming for full compatibili
   - Variables are case-insensitive
   - Implicit variable creation is supported (`Empty` default)
   - `Dim` declarations (single and multiple variables)
-  - Literals: numbers (including scientific notation), strings, booleans, `Nothing`, `Empty`, `Null`
+  - Literals: numbers (including scientific notation), hex (`&HFF`), octal (`&O77`), strings, booleans, `Nothing`, `Empty`, `Null`
 - **Statements**: `Dim`, assignments (`Let` optional), `Set`, `Call`, property assignments (`obj.Prop = value`), and expression statements (for things like `WScript.Echo`)
 - **Operators**:
   - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
@@ -18,7 +18,7 @@ A VBScript parser and interpreter written in Python, aiming for full compatibili
   - Logical: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp`
 - **Control flow**:
   - `If ... Then ... ElseIf ... Else ... End If`
-  - `Select Case ... Case ... Case Else ... End Select`
+  - `Select Case ... Case ... Case Else ... End Select` (including `Case x To y` ranges and `Case Is > x` comparisons)
   - `For ... To ... [Step ...] ... Next`
   - `For Each ... In ... Next`
   - `While ... Wend`
