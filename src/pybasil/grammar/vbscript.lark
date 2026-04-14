@@ -46,7 +46,7 @@ set_statement: SET_KW identifier ("(" arg_list ")")? "=" expression
 // Property assignment: obj.Property = value or obj.Property(args) = value or obj(args) = value
 // This handles dictionary.Item("key") = value and dict("key") = value
 // Must have at least one member access or array access to avoid conflict with assignment_statement
-property_assignment_statement: atom ("." identifier | "(" arg_list ")" | "(" ")")+ "=" expression
+property_assignment_statement: atom ("." identifier | "(" arg_list ")" | empty_args)+ "=" expression
 
 // Expression statement (for standalone expressions like WScript.Echo)
 // This handles method calls without parentheses like: WScript.Echo "Hello"
@@ -183,7 +183,10 @@ mod_tail: MOD_KW pow_expr
            | call_or_access
 
 // Call or member access - handles both function calls and member access
-?call_or_access: atom ("." identifier | "(" arg_list ")" | "(" ")")*
+?call_or_access: atom ("." identifier | "(" arg_list ")" | empty_args)*
+
+// Empty argument list for zero-argument calls like Array() or d.Keys()
+empty_args: "(" ")"
 
 // Primary expressions (atoms)
 ?atom: literal

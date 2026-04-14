@@ -459,6 +459,9 @@ class VBScriptTransformer(Transformer):
     def atom(self, items: List) -> ASTNode:
         return items[0]
 
+    def empty_args(self, items: List) -> None:
+        return None
+
     def arg_list(self, items: List) -> List[ASTNode]:
         return items
 

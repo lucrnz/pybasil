@@ -2285,6 +2285,46 @@ u = UBound(a)
         assert interpreter._environment.get('u') == 2
 
 
+class TestEmptyParensCalls:
+    """Tests for zero-argument calls with empty parentheses."""
+
+    def test_array_empty_parens(self):
+        code = 'x = Array()\n'
+        program = parse(code)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        result = interpreter._environment.get('x')
+        assert isinstance(result, VBScriptArray)
+
+    def test_dictionary_keys_empty_parens(self):
+        output = io.StringIO()
+        run(
+            '''Set d = CreateObject("Scripting.Dictionary")
+d.Add "a", 1
+d.Add "b", 2
+Dim k
+Set k = d.Keys()
+WScript.Echo k(0)
+WScript.Echo k(1)
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'a\nb'
+
+    def test_dictionary_items_empty_parens(self):
+        output = io.StringIO()
+        run(
+            '''Set d = CreateObject("Scripting.Dictionary")
+d.Add "x", 42
+Dim it
+Set it = d.Items()
+WScript.Echo it(0)
+''',
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == '42'
+
+
 class TestBuiltinsDictIntegrity:
     """Ensure builtins dictionary has no issues."""
 
