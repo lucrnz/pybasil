@@ -2223,6 +2223,44 @@ class TestSelectCase:
         assert output.getvalue().strip() == '1-2'
 
 
+class TestSplitCount:
+    """Tests for Split with count parameter."""
+
+    def test_split_with_count(self):
+        code = '''Dim arr
+arr = Split("a-b-c-d", "-", 2)
+x = UBound(arr)
+y = arr(0)
+z = arr(1)
+'''
+        program = parse(code)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 1
+        assert interpreter._environment.get('y') == 'a'
+        assert interpreter._environment.get('z') == 'b-c-d'
+
+    def test_split_without_count(self):
+        code = '''Dim arr
+arr = Split("a-b-c-d", "-")
+x = UBound(arr)
+'''
+        program = parse(code)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 3
+
+    def test_split_with_count_minus_one(self):
+        code = '''Dim arr
+arr = Split("a-b-c", "-", -1)
+x = UBound(arr)
+'''
+        program = parse(code)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 2
+
+
 class TestArrayBuiltin:
     """Tests for the Array() builtin function."""
 

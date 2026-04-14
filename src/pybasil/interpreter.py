@@ -2037,7 +2037,10 @@ class Interpreter:
         """Split function."""
         s = self._to_string(string)
         d = self._to_string(delimiter)
-        parts = s.split(d)
+        if count > 0:
+            parts = s.split(d, count - 1)
+        else:
+            parts = s.split(d)
         arr = VBScriptArray([len(parts) - 1], is_dynamic=True)
         for i, part in enumerate(parts):
             arr.set_element([i], part)
