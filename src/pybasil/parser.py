@@ -242,6 +242,14 @@ class VBScriptTransformer(Transformer):
             value = int(value)
         return NumberLiteral(value=value)
 
+    def HEX_LITERAL(self, token: Token) -> NumberLiteral:
+        raw = token.value.rstrip('&')
+        return NumberLiteral(value=int(raw[2:], 16))
+
+    def OCT_LITERAL(self, token: Token) -> NumberLiteral:
+        raw = token.value.rstrip('&')
+        return NumberLiteral(value=int(raw[2:], 8))
+
     def STRING(self, token: Token) -> StringLiteral:
         # Remove surrounding quotes and unescape doubled quotes
         value = token.value[1:-1].replace('""', '"')

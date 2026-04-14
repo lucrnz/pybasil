@@ -2223,6 +2223,46 @@ class TestSelectCase:
         assert output.getvalue().strip() == '1-2'
 
 
+class TestHexOctalLiterals:
+    """Tests for &H hex and &O octal literal support."""
+
+    def test_hex_literal(self):
+        program = parse('x = &HFF')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 255
+
+    def test_hex_literal_lowercase(self):
+        program = parse('x = &hff')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 255
+
+    def test_hex_literal_with_trailing_ampersand(self):
+        program = parse('x = &HFF&')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 255
+
+    def test_octal_literal(self):
+        program = parse('x = &O77')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 63
+
+    def test_hex_in_expression(self):
+        program = parse('x = &H10 + 1')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 17
+
+    def test_hex_zero(self):
+        program = parse('x = &H0')
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('x') == 0
+
+
 class TestSelectCaseRangeAndIs:
     """Tests for Case x To y and Case Is <op> expr in Select Case."""
 
