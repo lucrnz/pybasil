@@ -1017,7 +1017,12 @@ class VBScriptParser:
         return self._transformer.transform(tree)
 
 
+_cached_parser: Optional[VBScriptParser] = None
+
+
 def parse(source: str) -> Program:
     """Convenience function to parse VBScript source code."""
-    parser = VBScriptParser()
-    return parser.parse(source)
+    global _cached_parser
+    if _cached_parser is None:
+        _cached_parser = VBScriptParser()
+    return _cached_parser.parse(source)

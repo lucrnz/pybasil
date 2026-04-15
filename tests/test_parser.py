@@ -35,6 +35,23 @@ from pybasil import (
 )
 
 
+class TestCachedParser:
+    """Test that the module-level parse() function caches its parser."""
+
+    def test_parse_returns_same_parser(self):
+        from pybasil.parser import parse as parse_fn
+        parse_fn('Dim x\n')
+        from pybasil import parser as parser_mod
+        p1 = parser_mod._cached_parser
+        parse_fn('Dim y\n')
+        p2 = parser_mod._cached_parser
+        assert p1 is p2
+
+    def test_cached_parse_produces_valid_ast(self):
+        result = parse('x = 1\ny = 2\n')
+        assert len(result.statements) == 2
+
+
 class TestParserLiterals:
     """Test parsing of literal values."""
 
