@@ -1725,8 +1725,95 @@ class Interpreter:
             f'CreateObject should be used instead of New for: {node.class_name}'
         )
 
+    def _binop_sub(self, left: Any, right: Any) -> Any:
+        return self._to_number(left) - self._to_number(right)
+
+    def _binop_mul(self, left: Any, right: Any) -> Any:
+        return self._to_number(left) * self._to_number(right)
+
+    def _binop_div(self, left: Any, right: Any) -> Any:
+        right_num = self._to_number(right)
+        if right_num == 0:
+            raise VBScriptError('Division by zero')
+        return self._to_number(left) / right_num
+
+    def _binop_intdiv(self, left: Any, right: Any) -> Any:
+        right_num = self._to_number(right)
+        if right_num == 0:
+            raise VBScriptError('Division by zero')
+        return int(self._to_number(left) / right_num)
+
+    def _binop_mod(self, left: Any, right: Any) -> Any:
+        right_num = self._to_number(right)
+        if right_num == 0:
+            raise VBScriptError('Division by zero')
+        return int(math.fmod(self._to_number(left), right_num))
+
+    def _binop_pow(self, left: Any, right: Any) -> Any:
+        return self._to_number(left) ** self._to_number(right)
+
+    def _binop_concat(self, left: Any, right: Any) -> Any:
+        return self._to_string(left) + self._to_string(right)
+
+    def _binop_xor(self, left: Any, right: Any) -> Any:
+        return int(self._to_number(left)) ^ int(self._to_number(right))
+
+    def _binop_eqv(self, left: Any, right: Any) -> Any:
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+            return ~(int(left) ^ int(right))
+        return not (self._to_boolean(left) ^ self._to_boolean(right))
+
+    def _binop_imp(self, left: Any, right: Any) -> Any:
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+            return (~int(left)) | int(right)
+        return (not self._to_boolean(left)) or self._to_boolean(right)
+
+    _BINOP_DISPATCH = {
+        BinaryOp.ADD: '_add',
+        BinaryOp.SUB: '_binop_sub',
+        BinaryOp.MUL: '_binop_mul',
+        BinaryOp.DIV: '_binop_div',
+        BinaryOp.INTDIV: '_binop_intdiv',
+        BinaryOp.MOD: '_binop_mod',
+        BinaryOp.POW: '_binop_pow',
+        BinaryOp.CONCAT: '_binop_concat',
+        BinaryOp.AND: '_logical_and',
+        BinaryOp.OR: '_logical_or',
+        BinaryOp.XOR: '_binop_xor',
+        BinaryOp.EQV: '_binop_eqv',
+        BinaryOp.IMP: '_binop_imp',
+    }
+
+    # Operators where both-numeric operands can use direct Python arithmetic,
+    # skipping _to_number coercion and Empty/Null checks entirely.
+    _NUMERIC_FAST = {
+        BinaryOp.ADD: int.__add__,
+        BinaryOp.SUB: int.__sub__,
+        BinaryOp.MUL: int.__mul__,
+        BinaryOp.POW: int.__pow__,
+    }
+
     def _apply_binary_op(self, op: BinaryOp, left: Any, right: Any) -> Any:
         """Apply a binary operator."""
+        # Fast path: both operands are int (not bool) -- skip Empty/Null checks
+        # and coercion entirely.  Covers the hot arithmetic in For loops.
+        if type(left) is int and type(right) is int:
+            fast = self._NUMERIC_FAST.get(op)
+            if fast is not None:
+                return fast(left, right)
+            if op is BinaryOp.DIV:
+                if right == 0:
+                    raise VBScriptError('Division by zero')
+                return left / right
+            if op is BinaryOp.INTDIV:
+                if right == 0:
+                    raise VBScriptError('Division by zero')
+                return int(left / right)
+            if op is BinaryOp.MOD:
+                if right == 0:
+                    raise VBScriptError('Division by zero')
+                return int(math.fmod(left, right))
+
         # Handle Empty values
         if isinstance(left, VBScriptEmpty) and isinstance(right, VBScriptEmpty):
             left, right = 0, 0
@@ -1735,54 +1822,15 @@ class Interpreter:
         elif isinstance(right, VBScriptEmpty):
             right = 0 if isinstance(left, (int, float)) else ''
 
-        # Handle Null propagation
+        # Handle Null propagation (AND/OR have their own Null logic)
         if isinstance(left, VBScriptNull) or isinstance(right, VBScriptNull):
-            if op in (BinaryOp.AND, BinaryOp.OR):
-                pass  # Special handling for logical operators
-            else:
+            if op is not BinaryOp.AND and op is not BinaryOp.OR:
                 return NULL
 
-        if op == BinaryOp.ADD:
-            return self._add(left, right)
-        elif op == BinaryOp.SUB:
-            return self._to_number(left) - self._to_number(right)
-        elif op == BinaryOp.MUL:
-            return self._to_number(left) * self._to_number(right)
-        elif op == BinaryOp.DIV:
-            right_num = self._to_number(right)
-            if right_num == 0:
-                raise VBScriptError('Division by zero')
-            return self._to_number(left) / right_num
-        elif op == BinaryOp.INTDIV:
-            right_num = self._to_number(right)
-            if right_num == 0:
-                raise VBScriptError('Division by zero')
-            return int(self._to_number(left) / right_num)
-        elif op == BinaryOp.MOD:
-            right_num = self._to_number(right)
-            if right_num == 0:
-                raise VBScriptError('Division by zero')
-            return int(math.fmod(self._to_number(left), right_num))
-        elif op == BinaryOp.POW:
-            return self._to_number(left) ** self._to_number(right)
-        elif op == BinaryOp.CONCAT:
-            return self._to_string(left) + self._to_string(right)
-        elif op == BinaryOp.AND:
-            return self._logical_and(left, right)
-        elif op == BinaryOp.OR:
-            return self._logical_or(left, right)
-        elif op == BinaryOp.XOR:
-            return int(self._to_number(left)) ^ int(self._to_number(right))
-        elif op == BinaryOp.EQV:
-            if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
-                return ~(int(left) ^ int(right))
-            return not (self._to_boolean(left) ^ self._to_boolean(right))
-        elif op == BinaryOp.IMP:
-            if isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
-                return (~int(left)) | int(right)
-            return (not self._to_boolean(left)) or self._to_boolean(right)
-        else:
-            raise VBScriptError(f'Unknown binary operator: {op}')
+        handler = self._BINOP_DISPATCH.get(op)
+        if handler is not None:
+            return getattr(self, handler)(left, right)
+        raise VBScriptError(f'Unknown binary operator: {op}')
 
     def _apply_unary_op(self, op: UnaryOp, operand: Any) -> Any:
         """Apply a unary operator."""

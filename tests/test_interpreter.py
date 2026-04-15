@@ -2648,6 +2648,86 @@ class TestNumericFastPaths:
         assert interp._environment.get('x') == 7
 
 
+class TestBinopDispatch:
+    """Test binary operator dispatch dict and numeric fast-paths."""
+
+    def test_int_add_fast_path(self):
+        program = parse('x = 3 + 4\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '7'
+
+    def test_int_sub_fast_path(self):
+        program = parse('x = 10 - 3\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '7'
+
+    def test_int_mul_fast_path(self):
+        program = parse('x = 6 * 7\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '42'
+
+    def test_int_div_fast_path(self):
+        program = parse('x = 10 / 2\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '5'
+
+    def test_int_intdiv_fast_path(self):
+        program = parse('x = 7 \\ 2\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '3'
+
+    def test_int_mod_fast_path(self):
+        program = parse('x = 10 Mod 3\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '1'
+
+    def test_int_pow_fast_path(self):
+        program = parse('x = 2 ^ 10\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '1024'
+
+    def test_int_div_by_zero(self):
+        program = parse('x = 10 / 0')
+        with pytest.raises(Exception, match='Division by zero'):
+            Interpreter().interpret(program)
+
+    def test_int_intdiv_by_zero(self):
+        program = parse('x = 10 \\ 0')
+        with pytest.raises(Exception, match='Division by zero'):
+            Interpreter().interpret(program)
+
+    def test_int_mod_by_zero(self):
+        program = parse('x = 10 Mod 0')
+        with pytest.raises(Exception, match='Division by zero'):
+            Interpreter().interpret(program)
+
+    def test_concat_dispatch(self):
+        program = parse('x = "hello" & " world"\nWScript.Echo x')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == 'hello world'
+
+    def test_empty_operand_falls_through(self):
+        """Empty values should coerce and use the dispatch path."""
+        program = parse('Dim x\ny = x + 1\nWScript.Echo y')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '1'
+
+    def test_binop_dispatch_all_ops_covered(self):
+        from pybasil.ast_nodes import BinaryOp
+        interp = Interpreter()
+        for op in BinaryOp:
+            assert op in interp._BINOP_DISPATCH, f'{op} missing from _BINOP_DISPATCH'
+
+
 class TestNodeDispatchTables:
     """Test that dispatch tables cover all AST node types."""
 
