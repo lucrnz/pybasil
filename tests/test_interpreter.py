@@ -2648,6 +2648,41 @@ class TestNumericFastPaths:
         assert interp._environment.get('x') == 7
 
 
+class TestNodeDispatchTables:
+    """Test that dispatch tables cover all AST node types."""
+
+    def test_execute_dispatch_covers_statements(self):
+        interp = Interpreter()
+        from pybasil.ast_nodes import (
+            DimStatement, AssignmentStatement, ExpressionStatement,
+            IfStatement, ForStatement, WhileStatement, SubStatement,
+            FunctionStatement, ExitStatement,
+        )
+        for cls in (DimStatement, AssignmentStatement, ExpressionStatement,
+                    IfStatement, ForStatement, WhileStatement, SubStatement,
+                    FunctionStatement, ExitStatement):
+            assert cls in interp._execute_dispatch, f'{cls.__name__} missing from execute dispatch'
+
+    def test_evaluate_dispatch_covers_expressions(self):
+        interp = Interpreter()
+        from pybasil.ast_nodes import (
+            NumberLiteral, StringLiteral, BooleanLiteral, Identifier,
+            BinaryExpression, UnaryExpression, ComparisonExpression,
+            MemberAccess, FunctionCall, MethodCall, ArrayAccess,
+        )
+        for cls in (NumberLiteral, StringLiteral, BooleanLiteral, Identifier,
+                    BinaryExpression, UnaryExpression, ComparisonExpression,
+                    MemberAccess, FunctionCall, MethodCall, ArrayAccess):
+            assert cls in interp._evaluate_dispatch, f'{cls.__name__} missing from evaluate dispatch'
+
+    def test_dispatch_matches_getattr_approach(self):
+        """Ensure the dict dispatch finds the same handler as the old getattr approach."""
+        interp = Interpreter()
+        from pybasil.ast_nodes import NumberLiteral, DimStatement
+        assert interp._evaluate_dispatch[NumberLiteral] == interp._evaluate_NumberLiteral
+        assert interp._execute_dispatch[DimStatement] == interp._execute_DimStatement
+
+
 class TestBuiltinsDictIntegrity:
     """Ensure builtins dictionary has no issues."""
 

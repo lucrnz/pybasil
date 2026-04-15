@@ -27,6 +27,7 @@ from .ast_nodes import (
     DimStatement,
     AssignmentStatement,
     SetStatement,
+    PropertyAssignmentStatement,
     CallStatement,
     ExpressionStatement,
     IfStatement,
@@ -634,6 +635,24 @@ class WScriptObject:
         sys.exit(exit_code)
 
 
+_NODE_CLASS_MAP: Dict[str, type] = {
+    cls.__name__: cls for cls in (
+        Program, DimStatement, AssignmentStatement, SetStatement,
+        PropertyAssignmentStatement,
+        CallStatement, ExpressionStatement, IfStatement, SelectCaseStatement,
+        ForStatement, ForEachStatement, WhileStatement, DoLoopStatement,
+        ExitStatement, SubStatement, FunctionStatement,
+        OnErrorResumeNextStatement, OnErrorGoToStatement,
+        ReDimStatement, EraseStatement,
+        NumberLiteral, StringLiteral, BooleanLiteral,
+        NothingLiteral, EmptyLiteral, NullLiteral,
+        Identifier, BinaryExpression, UnaryExpression,
+        ComparisonExpression, MemberAccess, FunctionCall,
+        MethodCall, NewExpression, ArrayAccess,
+    )
+}
+
+
 class Interpreter:
     """Tree-walking interpreter for VBScript AST."""
 
@@ -644,6 +663,7 @@ class Interpreter:
         self._error_mode: ErrorHandlingMode = ErrorHandlingMode.DEFAULT
         self._err: ErrObject = ErrObject()
         self._setup_builtins()
+        self._build_dispatch_tables()
 
     def _setup_builtins(self) -> None:
         """Set up built-in objects and functions."""
@@ -755,14 +775,29 @@ class Interpreter:
             return 9  # Subscript out of range
         return 1000  # Generic runtime error
 
+    def _build_dispatch_tables(self) -> None:
+        """Pre-compute {NodeType: handler} dicts for _execute and _evaluate."""
+        self._execute_dispatch: Dict[type, Callable] = {}
+        self._evaluate_dispatch: Dict[type, Callable] = {}
+        for attr in dir(self):
+            if attr.startswith('_execute_') and attr != '_execute_default' \
+                    and attr != '_execute_with_error_handling' \
+                    and attr != '_execute_procedure':
+                node_name = attr[len('_execute_'):]
+                node_cls = _NODE_CLASS_MAP.get(node_name)
+                if node_cls is not None:
+                    self._execute_dispatch[node_cls] = getattr(self, attr)
+            elif attr.startswith('_evaluate_') and attr != '_evaluate_default':
+                node_name = attr[len('_evaluate_'):]
+                node_cls = _NODE_CLASS_MAP.get(node_name)
+                if node_cls is not None:
+                    self._evaluate_dispatch[node_cls] = getattr(self, attr)
+
     def _execute(self, node: ASTNode) -> Any:
         """Execute a statement node."""
-        method_name = f'_execute_{type(node).__name__}'
-        method = getattr(self, method_name, self._execute_default)
-        return method(node)
-
-    def _execute_default(self, node: ASTNode) -> Any:
-        """Default execution handler."""
+        handler = self._execute_dispatch.get(type(node))
+        if handler is not None:
+            return handler(node)
         raise VBScriptError(f'Unknown statement type: {type(node).__name__}')
 
     def _execute_DimStatement(self, node: DimStatement) -> None:
@@ -1411,12 +1446,9 @@ class Interpreter:
 
     def _evaluate(self, node: ASTNode) -> Any:
         """Evaluate an expression node."""
-        method_name = f'_evaluate_{type(node).__name__}'
-        method = getattr(self, method_name, self._evaluate_default)
-        return method(node)
-
-    def _evaluate_default(self, node: ASTNode) -> Any:
-        """Default evaluation handler."""
+        handler = self._evaluate_dispatch.get(type(node))
+        if handler is not None:
+            return handler(node)
         raise VBScriptError(f'Unknown expression type: {type(node).__name__}')
 
     def _evaluate_NumberLiteral(self, node: NumberLiteral) -> Any:
