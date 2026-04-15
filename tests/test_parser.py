@@ -35,6 +35,19 @@ from pybasil import (
 )
 
 
+class TestPrecompiledRemRegex:
+    """Test that the REM-comment regex is pre-compiled at module level."""
+
+    def test_rem_regex_compiled(self):
+        from pybasil.parser import _REM_RE
+        import re
+        assert isinstance(_REM_RE, re.Pattern)
+
+    def test_rem_comment_still_stripped(self):
+        result = parse('x = 1 Rem this is a comment\n')
+        assert len(result.statements) == 1
+
+
 class TestCachedParser:
     """Test that the module-level parse() function caches its parser."""
 

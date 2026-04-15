@@ -61,6 +61,8 @@ from .ast_nodes import (
     EraseStatement,
 )
 
+_REM_RE = re.compile(r'\b[Rr][Ee][Mm](?=\s|$)')
+
 
 class VBScriptTransformer(Transformer):
     """Transforms Lark parse tree into AST nodes."""
@@ -999,7 +1001,7 @@ class VBScriptParser:
                 result.append(line[i:j + 1])
                 i = j + 1
             else:
-                m = re.match(r'\b[Rr][Ee][Mm](?=\s|$)', line[i:])
+                m = _REM_RE.match(line, i)
                 if m:
                     result.append("'")
                     i += m.end()
