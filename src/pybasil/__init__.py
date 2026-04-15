@@ -48,8 +48,7 @@ from .ast_nodes import (
     EraseStatement,
 )
 from .parser import VBScriptParser, parse
-from .interpreter import (
-    Interpreter,
+from .runtime import (
     Environment,
     WScriptObject,
     VBScriptError,
@@ -57,10 +56,14 @@ from .interpreter import (
     VBScriptEmpty,
     VBScriptNull,
     VBScriptArray,
+    VBScriptDictionary,
     NOTHING,
     EMPTY,
     NULL,
     Procedure,
+)
+from .interpreter import (
+    Interpreter,
     run,
 )
 
@@ -129,6 +132,7 @@ __all__ = [
     'VBScriptEmpty',
     'VBScriptNull',
     'VBScriptArray',
+    'VBScriptDictionary',
     'NOTHING',
     'EMPTY',
     'NULL',

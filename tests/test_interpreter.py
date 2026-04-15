@@ -2500,8 +2500,9 @@ class TestArrayBuiltin:
     """Tests for the Array() builtin function."""
 
     def test_array_no_args_returns_empty_array(self):
+        from pybasil.builtins import builtin_array
         interpreter = Interpreter()
-        result = interpreter._builtin_array()
+        result = builtin_array(interpreter)
         assert isinstance(result, VBScriptArray)
         assert result.ubound() == -1
 
@@ -2758,7 +2759,7 @@ class TestBinopDispatch:
         from pybasil.ast_nodes import BinaryOp
         interp = Interpreter()
         for op in BinaryOp:
-            assert op in interp._BINOP_DISPATCH, f'{op} missing from _BINOP_DISPATCH'
+            assert op in interp._binop_dispatch, f'{op} missing from _binop_dispatch'
 
 
 class TestNodeDispatchTables:
