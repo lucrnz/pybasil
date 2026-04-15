@@ -1870,17 +1870,14 @@ class Interpreter:
 
     def _to_number(self, value: Any) -> Union[int, float]:
         """Convert a value to a number."""
+        if isinstance(value, int):
+            if isinstance(value, bool):
+                return -1 if value else 0
+            return value
+        if isinstance(value, float):
+            return value
         if isinstance(value, VBScriptEmpty):
             return 0
-        if isinstance(value, VBScriptNull):
-            raise VBScriptError('Type mismatch: cannot convert Null to number')
-        if isinstance(value, VBScriptNothing):
-            raise VBScriptError('Type mismatch: cannot convert Nothing to number')
-        if isinstance(value, bool):
-            # In VBScript, True is -1 and False is 0
-            return -1 if value else 0
-        if isinstance(value, (int, float)):
-            return value
         if isinstance(value, str):
             if value == '':
                 return 0
@@ -1890,35 +1887,39 @@ class Interpreter:
                 raise VBScriptError(
                     f"Type mismatch: cannot convert '{value}' to number"
                 )
+        if isinstance(value, VBScriptNull):
+            raise VBScriptError('Type mismatch: cannot convert Null to number')
+        if isinstance(value, VBScriptNothing):
+            raise VBScriptError('Type mismatch: cannot convert Nothing to number')
         raise VBScriptError('Type mismatch: cannot convert to number')
 
     def _to_string(self, value: Any) -> str:
         """Convert a value to a string."""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, int):
+            if isinstance(value, bool):
+                return 'True' if value else 'False'
+            return str(value)
+        if isinstance(value, float):
+            if value.is_integer():
+                return str(int(value))
+            return str(value)
         if isinstance(value, VBScriptEmpty):
             return ''
         if isinstance(value, VBScriptNull):
             return 'Null'
         if isinstance(value, VBScriptNothing):
             return 'Nothing'
-        if isinstance(value, bool):
-            return 'True' if value else 'False'
-        if isinstance(value, float):
-            if value.is_integer():
-                return str(int(value))
-            return str(value)
         return str(value)
 
     def _to_boolean(self, value: Any) -> bool:
         """Convert a value to a boolean."""
-        if isinstance(value, VBScriptEmpty):
-            return False
-        if isinstance(value, VBScriptNull):
-            return False
-        if isinstance(value, VBScriptNothing):
-            return False
         if isinstance(value, bool):
             return value
-        if isinstance(value, (int, float)):
+        if isinstance(value, int):
+            return value != 0
+        if isinstance(value, float):
             return value != 0
         if isinstance(value, str):
             if value == '':
@@ -1928,6 +1929,12 @@ class Interpreter:
             if value.lower() == 'false':
                 return False
             return True
+        if isinstance(value, VBScriptEmpty):
+            return False
+        if isinstance(value, VBScriptNull):
+            return False
+        if isinstance(value, VBScriptNothing):
+            return False
         return bool(value)
 
     # Built-in functions
@@ -2010,8 +2017,8 @@ class Interpreter:
         else:
             return 0
 
-        s1 = self._to_string(string1)
-        s2 = self._to_string(string2)
+        s1 = string1 if isinstance(string1, str) else self._to_string(string1)
+        s2 = string2 if isinstance(string2, str) else self._to_string(string2)
         start_idx = start - 1  # VBScript is 1-indexed
         if compare == 1:
             idx = s1.lower().find(s2.lower(), start_idx)
@@ -2087,14 +2094,22 @@ class Interpreter:
 
     def _builtin_cint(self, value: Any) -> int:
         """CInt function."""
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
         return round(self._to_number(value))
 
     def _builtin_clng(self, value: Any) -> int:
         """CLng function."""
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
         return round(self._to_number(value))
 
     def _builtin_cdbl(self, value: Any) -> float:
         """CDbl function."""
+        if isinstance(value, float):
+            return value
+        if isinstance(value, int) and not isinstance(value, bool):
+            return float(value)
         return self._to_number(value)
 
     def _builtin_cbool(self, value: Any) -> bool:

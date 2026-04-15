@@ -2560,6 +2560,94 @@ WScript.Echo it(0)
         assert output.getvalue().strip() == '42'
 
 
+class TestNumericFastPaths:
+    """Test fast-paths in type coercion and builtin functions for numeric types."""
+
+    def test_to_number_int_fast_path(self):
+        output = io.StringIO()
+        program = parse('x = 42\ny = x + 1\nWScript.Echo y')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == '43'
+
+    def test_to_number_float_fast_path(self):
+        program = parse('x = 3.5\ny = x + 1.5')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('y') == 5.0
+
+    def test_to_number_bool_still_works(self):
+        output = io.StringIO()
+        program = parse('x = True\ny = x + 1\nWScript.Echo y')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == '0'
+
+    def test_to_string_str_fast_path(self):
+        output = io.StringIO()
+        program = parse('x = "hello" & " world"\nWScript.Echo x')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == 'hello world'
+
+    def test_to_string_int_fast_path(self):
+        program = parse('x = CStr(42)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == '42'
+
+    def test_to_boolean_bool_fast_path(self):
+        output = io.StringIO()
+        program = parse('If True Then\nWScript.Echo "yes"\nEnd If')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == 'yes'
+
+    def test_to_boolean_int_fast_path(self):
+        output = io.StringIO()
+        program = parse('x = 1\nIf x Then\nWScript.Echo "yes"\nEnd If')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == 'yes'
+
+    def test_cint_int_fast_path(self):
+        program = parse('x = CInt(42)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 42
+
+    def test_cint_string_conversion(self):
+        program = parse('x = CInt("123")')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 123
+
+    def test_cdbl_float_fast_path(self):
+        program = parse('x = CDbl(3.14)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 3.14
+
+    def test_cdbl_int_to_float(self):
+        program = parse('x = CDbl(42)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 42.0
+        assert isinstance(interp._environment.get('x'), float)
+
+    def test_cdbl_string_conversion(self):
+        program = parse('x = CDbl("3.14")')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 3.14
+
+    def test_instr_string_fast_path(self):
+        program = parse('x = InStr(1, "Hello World", "World")')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 7
+
+
 class TestBuiltinsDictIntegrity:
     """Ensure builtins dictionary has no issues."""
 
