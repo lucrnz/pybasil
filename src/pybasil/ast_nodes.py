@@ -100,6 +100,10 @@ class NullLiteral(ASTNode):
 @dataclass
 class Identifier(ASTNode):
     name: str
+    _lower: str = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, '_lower', self.name.lower())
 
 
 @dataclass

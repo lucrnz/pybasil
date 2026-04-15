@@ -93,6 +93,8 @@ NOTHING = VBScriptNothing()
 EMPTY = VBScriptEmpty()
 NULL = VBScriptNull()
 
+_ENVGET_MISS = object()
+
 
 class VBScriptArray:
     """VBScript array implementation supporting multi-dimensional arrays."""
@@ -1477,15 +1479,24 @@ class Interpreter:
 
     def _evaluate_Identifier(self, node: Identifier) -> Any:
         """Evaluate an identifier."""
-        name = node.name.lower()
+        name_lower = node._lower
 
         # Check if this is a function call (function name without parentheses)
-        if name in self._procedures:
-            proc = self._procedures[name]
+        if name_lower in self._procedures:
+            proc = self._procedures[name_lower]
             if proc.is_function:
                 return self._execute_procedure(proc, [])
 
-        return self._environment.get(node.name)
+        # Inline fast path: walk the scope chain using the pre-lowered key
+        # directly, skipping the redundant .lower() in Environment.get().
+        env = self._environment
+        _miss = _ENVGET_MISS
+        while env is not None:
+            val = env._variables.get(name_lower, _miss)
+            if val is not _miss:
+                return val
+            env = env._parent
+        return EMPTY
 
     def _evaluate_BinaryExpression(self, node: BinaryExpression) -> Any:
         """Evaluate a binary expression."""

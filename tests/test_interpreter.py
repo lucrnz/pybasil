@@ -2648,6 +2648,39 @@ class TestNumericFastPaths:
         assert interp._environment.get('x') == 7
 
 
+class TestCachedLowercaseIdentifiers:
+    """Test pre-lowered Identifier._lower used by the interpreter."""
+
+    def test_identifier_lower_computed(self):
+        from pybasil.ast_nodes import Identifier
+        ident = Identifier(name='MyVar')
+        assert ident._lower == 'myvar'
+
+    def test_identifier_lower_already_lowercase(self):
+        from pybasil.ast_nodes import Identifier
+        ident = Identifier(name='x')
+        assert ident._lower == 'x'
+
+    def test_identifier_lookup_uses_cached_lower(self):
+        """Variable set with mixed case should be found via cached lower."""
+        program = parse('MyVar = 42\nWScript.Echo MyVar')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '42'
+
+    def test_identifier_case_insensitive_via_cache(self):
+        program = parse('myvar = 10\nWScript.Echo MYVAR')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '10'
+
+    def test_identifier_in_nested_scope(self):
+        program = parse('x = 5\nFunction GetX()\nGetX = x\nEnd Function\nWScript.Echo GetX()')
+        output = io.StringIO()
+        Interpreter(output_stream=output).interpret(program)
+        assert output.getvalue().strip() == '5'
+
+
 class TestBinopDispatch:
     """Test binary operator dispatch dict and numeric fast-paths."""
 
