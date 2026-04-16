@@ -158,4 +158,80 @@ For i = 1 To 200
     isEmpty2 = IsEmpty(total)
 Next
 
+' Class operations - Property Get/Let, methods, field access
+Class Counter
+    Private m_val
+    Private Sub Class_Initialize()
+        m_val = 0
+    End Sub
+    Public Property Get Value
+        Value = m_val
+    End Property
+    Public Property Let Value(v)
+        m_val = v
+    End Property
+    Public Function Increment()
+        m_val = m_val + 1
+        Increment = m_val
+    End Function
+    Public Function Add(n)
+        m_val = m_val + n
+        Add = m_val
+    End Function
+End Class
+
+Class Point
+    Public X
+    Public Y
+    Public Function DistSq()
+        DistSq = X * X + Y * Y
+    End Function
+End Class
+
+Class Person
+    Private m_first
+    Private m_last
+    Property Let FirstName(v)
+        m_first = v
+    End Property
+    Property Get FirstName
+        FirstName = m_first
+    End Property
+    Property Let LastName(v)
+        m_last = v
+    End Property
+    Property Get LastName
+        LastName = m_last
+    End Property
+    Property Get FullName
+        FullName = FirstName & " " & LastName
+    End Property
+End Class
+
+Dim c
+Set c = New Counter
+For i = 1 To 500
+    c.Value = i
+    total = total + c.Value
+    c.Increment
+    c.Add 2
+Next
+
+Dim p
+Set p = New Point
+For i = 1 To 500
+    p.X = i
+    p.Y = i * 2
+    total = total + p.DistSq()
+Next
+
+Dim person
+Set person = New Person
+For i = 1 To 200
+    person.FirstName = "First" & CStr(i)
+    person.LastName = "Last" & CStr(i)
+    Dim fullName
+    fullName = person.FullName
+Next
+
 WScript.Echo total
