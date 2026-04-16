@@ -406,6 +406,70 @@ class VBScriptDictionary:
 
 
 # ---------------------------------------------------------------------------
+#  VBScriptClassDef / VBScriptClassInstance
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ClassPropertyDef:
+    """Definition of a Property Get/Let/Set triplet."""
+
+    get_params: Optional[List[Parameter]] = None
+    get_body: Optional[List[ASTNode]] = None
+    let_params: Optional[List[Parameter]] = None
+    let_body: Optional[List[ASTNode]] = None
+    set_params: Optional[List[Parameter]] = None
+    set_body: Optional[List[ASTNode]] = None
+    is_public: bool = True
+    is_default: bool = False
+    # Cached Procedure objects (built once during class registration)
+    _get_proc: Optional['Procedure'] = None
+    _let_proc: Optional['Procedure'] = None
+    _set_proc: Optional['Procedure'] = None
+
+
+@dataclass
+class ClassMethodDef:
+    """Definition of a Sub or Function in a class."""
+
+    proc: 'Procedure'
+    is_public: bool = True
+    is_default: bool = False
+
+
+@dataclass
+class ClassFieldDef:
+    """Definition of a field in a class."""
+
+    name: str
+    is_public: bool = True
+    dimensions: Optional[List[ASTNode]] = None
+
+
+class VBScriptClassDef:
+    """Blueprint for a user-defined VBScript class."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.fields: List[ClassFieldDef] = []
+        self.field_names: Dict[str, str] = {}  # lowercase name -> original name
+        self.methods: Dict[str, ClassMethodDef] = {}  # lowercase name -> def
+        self.properties: Dict[str, ClassPropertyDef] = {}  # lowercase name -> def
+        self.default_member: Optional[str] = None  # lowercase name of default member
+
+
+class VBScriptClassInstance(VBScriptObject):
+    """A live instance of a user-defined VBScript class."""
+
+    def __init__(self, class_def: VBScriptClassDef, env: 'Environment'):
+        self._class_def = class_def
+        self._env = env  # instance-level environment (holds fields)
+
+    @property
+    def class_name(self) -> str:
+        return self._class_def.name
+
+
+# ---------------------------------------------------------------------------
 #  ErrObject
 # ---------------------------------------------------------------------------
 
