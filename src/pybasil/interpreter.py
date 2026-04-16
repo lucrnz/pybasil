@@ -34,6 +34,7 @@ from .ast_nodes import (
     MethodCall,
     NewExpression,
     ArrayAccess,
+    MeExpression,
     DimStatement,
     AssignmentStatement,
     SetStatement,
@@ -51,6 +52,13 @@ from .ast_nodes import (
     ExitStatement,
     SubStatement,
     FunctionStatement,
+    ClassStatement,
+    ClassMemberField,
+    ClassMemberSub,
+    ClassMemberFunction,
+    PropertyGetStatement,
+    PropertyLetStatement,
+    PropertySetStatement,
     BinaryOp,
     UnaryOp,
     ComparisonOp,
@@ -75,6 +83,11 @@ from .runtime import (
     _DictItemAccessor,
     _DictKeyAccessor,
     VBScriptDictionary,
+    VBScriptClassDef,
+    VBScriptClassInstance,
+    ClassPropertyDef,
+    ClassMethodDef,
+    ClassFieldDef,
     ErrObject,
     WScriptObject,
     ExitLoopException,
@@ -97,6 +110,8 @@ class Interpreter:
         self._environment = Environment()
         self._output_stream = output_stream
         self._procedures: Dict[str, Procedure] = {}  # User-defined procedures
+        self._class_defs: Dict[str, VBScriptClassDef] = {}  # User-defined classes
+        self._current_instance: VBScriptClassInstance | None = None  # Me reference
         self._error_mode: ErrorHandlingMode = ErrorHandlingMode.DEFAULT
         self._err: ErrObject = ErrObject()
         self._setup_builtins()
@@ -192,6 +207,7 @@ class Interpreter:
         OnErrorGoToStatement: '_execute_OnErrorGoToStatement',
         ReDimStatement: '_execute_ReDimStatement',
         EraseStatement: '_execute_EraseStatement',
+        ClassStatement: '_execute_ClassStatement',
     }
 
     _EVALUATE_DISPATCH = {
@@ -210,6 +226,7 @@ class Interpreter:
         MethodCall: '_evaluate_MethodCall',
         NewExpression: '_evaluate_NewExpression',
         ArrayAccess: '_evaluate_ArrayAccess',
+        MeExpression: '_evaluate_MeExpression',
     }
 
     def _resolve_dispatch_tables(self) -> None:
@@ -312,6 +329,10 @@ class Interpreter:
             # obj.Property = value or obj.Property(args) = value
             obj = self._evaluate(target.object)
 
+            if isinstance(obj, VBScriptClassInstance):
+                self._class_instance_member_set(obj, target.member, value)
+                return
+
             if isinstance(obj, VBScriptDictionary):
                 # Handle dictionary property assignment
                 prop_name = target.member.lower()
@@ -341,6 +362,17 @@ class Interpreter:
         elif isinstance(target, MethodCall):
             # obj.Method(args) = value - this is property assignment with arguments
             obj = self._evaluate(target.object)
+
+            if isinstance(obj, VBScriptClassInstance):
+                member = target.method.lower()
+                prop = obj._class_def.properties.get(member)
+                if prop and prop.let_body:
+                    args = [self._evaluate(a) for a in target.arguments] + [value]
+                    self._call_class_property_let(obj, prop, args, args_evaluated=True)
+                    return
+                raise VBScriptError(
+                    f"Object doesn't support this property or method: {target.method}"
+                )
 
             if isinstance(obj, VBScriptDictionary):
                 method_name = target.method.lower()
@@ -833,7 +865,7 @@ class Interpreter:
 
     def _execute_ExitStatement(self, node: ExitStatement) -> None:
         """Execute an Exit statement."""
-        if node.exit_type in (ExitType.SUB, ExitType.FUNCTION):
+        if node.exit_type in (ExitType.SUB, ExitType.FUNCTION, ExitType.PROPERTY):
             raise ExitProcedureException(node.exit_type)
         else:
             raise ExitLoopException(node.exit_type)
@@ -881,6 +913,229 @@ class Interpreter:
             arr = self._environment.get(name)
             if isinstance(arr, VBScriptArray):
                 arr.erase()
+
+    # ------------------------------------------------------------------
+    #  Class handler
+    # ------------------------------------------------------------------
+
+    def _execute_ClassStatement(self, node: ClassStatement) -> None:
+        """Register a Class definition."""
+        class_def = VBScriptClassDef(node.name)
+
+        for member in node.members:
+            if isinstance(member, ClassMemberField):
+                if member.dim:
+                    for dv in member.dim.variables:
+                        class_def.fields.append(
+                            ClassFieldDef(
+                                name=dv.name,
+                                is_public=member.is_public,
+                                dimensions=dv.dimensions,
+                            )
+                        )
+            elif isinstance(member, ClassMemberSub):
+                proc = Procedure(
+                    name=member.sub.name.lower(),
+                    parameters=member.sub.parameters,
+                    body=member.sub.body,
+                    is_function=False,
+                )
+                method_def = ClassMethodDef(
+                    proc=proc, is_public=member.is_public,
+                    is_default=member.is_default,
+                )
+                class_def.methods[proc.name] = method_def
+                if member.is_default:
+                    class_def.default_member = proc.name
+            elif isinstance(member, ClassMemberFunction):
+                proc = Procedure(
+                    name=member.function.name.lower(),
+                    parameters=member.function.parameters,
+                    body=member.function.body,
+                    is_function=True,
+                )
+                method_def = ClassMethodDef(
+                    proc=proc, is_public=member.is_public,
+                    is_default=member.is_default,
+                )
+                class_def.methods[proc.name] = method_def
+                if member.is_default:
+                    class_def.default_member = proc.name
+            elif isinstance(member, PropertyGetStatement):
+                prop_name = member.name.lower()
+                prop = class_def.properties.setdefault(
+                    prop_name, ClassPropertyDef()
+                )
+                prop.get_params = member.parameters
+                prop.get_body = member.body
+                prop.is_public = member.is_public
+                if member.is_default:
+                    prop.is_default = True
+                    class_def.default_member = prop_name
+            elif isinstance(member, PropertyLetStatement):
+                prop_name = member.name.lower()
+                prop = class_def.properties.setdefault(
+                    prop_name, ClassPropertyDef()
+                )
+                prop.let_params = member.parameters
+                prop.let_body = member.body
+                prop.is_public = member.is_public
+            elif isinstance(member, PropertySetStatement):
+                prop_name = member.name.lower()
+                prop = class_def.properties.setdefault(
+                    prop_name, ClassPropertyDef()
+                )
+                prop.set_params = member.parameters
+                prop.set_body = member.body
+                prop.is_public = member.is_public
+
+        # Build field_names lookup dict
+        for fld in class_def.fields:
+            class_def.field_names[fld.name.lower()] = fld.name
+
+        # Pre-cache Procedure objects for properties
+        for prop_name, prop in class_def.properties.items():
+            if prop.get_body is not None:
+                prop._get_proc = Procedure(
+                    name=prop_name,
+                    parameters=prop.get_params or [],
+                    body=prop.get_body,
+                    is_function=True,
+                )
+            if prop.let_body is not None:
+                prop._let_proc = Procedure(
+                    name='__property_let__',
+                    parameters=prop.let_params or [],
+                    body=prop.let_body,
+                    is_function=False,
+                )
+            if prop.set_body is not None:
+                prop._set_proc = Procedure(
+                    name='__property_set__',
+                    parameters=prop.set_params or [],
+                    body=prop.set_body,
+                    is_function=False,
+                )
+
+        self._class_defs[node.name.lower()] = class_def
+
+    def _instantiate_class(self, class_def: VBScriptClassDef) -> VBScriptClassInstance:
+        """Create a new instance of a user-defined class."""
+        inst_env = Environment(parent=self._environment)
+
+        for fld in class_def.fields:
+            if fld.dimensions is not None:
+                if len(fld.dimensions) == 0:
+                    inst_env.define(fld.name, VBScriptArray([], is_dynamic=True))
+                else:
+                    dims = [int(self._evaluate(d)) for d in fld.dimensions]
+                    inst_env.define(fld.name, VBScriptArray(dims, is_dynamic=False))
+            else:
+                inst_env.define(fld.name, EMPTY)
+
+        instance = VBScriptClassInstance(class_def, inst_env)
+
+        # Run Class_Initialize if present
+        init_method = class_def.methods.get('class_initialize')
+        if init_method:
+            self._call_class_method(instance, init_method.proc, [])
+
+        return instance
+
+    def _call_class_method(
+        self, instance: VBScriptClassInstance, proc: Procedure,
+        arguments: List[ASTNode], args_evaluated: bool = False,
+    ) -> Any:
+        """Execute a method on a class instance."""
+        old_env = self._environment
+        old_instance = self._current_instance
+        old_error_mode = self._error_mode
+        proc_env = Environment(parent=instance._env)
+        self._environment = proc_env
+        self._current_instance = instance
+        self._error_mode = ErrorHandlingMode.DEFAULT
+        self._err.Clear()
+
+        try:
+            if args_evaluated:
+                # Fast path: args already evaluated, no ByRef handling needed
+                for i, param in enumerate(proc.parameters):
+                    proc_env.define(
+                        param.name,
+                        arguments[i] if i < len(arguments) else EMPTY,
+                    )
+            else:
+                arg_values = [self._evaluate(arg) for arg in arguments]
+                byref_bindings: Dict[str, tuple] = {}
+                for i, param in enumerate(proc.parameters):
+                    if i < len(arg_values):
+                        if param.is_byref and isinstance(arguments[i], Identifier):
+                            var_name = arguments[i].name
+                            byref_bindings[param.name.lower()] = (old_env, var_name)
+                            proc_env.define(param.name, old_env.get(var_name))
+                        else:
+                            proc_env.define(param.name, arg_values[i])
+                    else:
+                        proc_env.define(param.name, EMPTY)
+
+            if proc.is_function:
+                proc_env.define(proc.name, EMPTY)
+
+            try:
+                for stmt in proc.body:
+                    self._execute_with_error_handling(stmt)
+            except ExitProcedureException:
+                if proc.is_function:
+                    return proc_env.get(proc.name)
+                return EMPTY
+
+            if proc.is_function:
+                return proc_env.get(proc.name)
+            return EMPTY
+        finally:
+            if not args_evaluated:
+                for param_name, (orig_env, orig_var) in byref_bindings.items():
+                    orig_env.set(orig_var, proc_env.get(param_name))
+            self._environment = old_env
+            self._current_instance = old_instance
+            self._error_mode = old_error_mode
+
+    def _call_class_property_get(
+        self, instance: VBScriptClassInstance, prop: ClassPropertyDef,
+        arguments: List = None, args_evaluated: bool = False,
+        prop_name: str = '',
+    ) -> Any:
+        """Execute a Property Get on a class instance."""
+        proc = prop._get_proc
+        if proc is None:
+            raise VBScriptError("Object doesn't support this property or method")
+        return self._call_class_method(
+            instance, proc, arguments or [], args_evaluated=args_evaluated,
+        )
+
+    def _call_class_property_let(
+        self, instance: VBScriptClassInstance, prop: ClassPropertyDef,
+        arguments: List, args_evaluated: bool = False,
+    ) -> None:
+        """Execute a Property Let on a class instance."""
+        proc = prop._let_proc
+        if proc is None:
+            raise VBScriptError("Object doesn't support this property or method")
+        self._call_class_method(
+            instance, proc, arguments, args_evaluated=args_evaluated,
+        )
+
+    def _call_class_property_set(
+        self, instance: VBScriptClassInstance, prop: ClassPropertyDef,
+        arguments: List, args_evaluated: bool = False,
+    ) -> None:
+        """Execute a Property Set on a class instance."""
+        proc = prop._set_proc
+        if proc is None:
+            raise VBScriptError("Object doesn't support this property or method")
+        self._call_class_method(
+            instance, proc, arguments, args_evaluated=args_evaluated,
+        )
 
     # ------------------------------------------------------------------
     #  Evaluate handlers
@@ -950,6 +1205,24 @@ class Interpreter:
             if val is not _miss:
                 return val
             env = env._parent
+
+        # Implicit member resolution: inside a class method, bare identifiers
+        # that aren't found in the scope chain resolve to properties/methods
+        # on the current instance (equivalent to Me.<name>).
+        inst = self._current_instance
+        if inst is not None:
+            class_def = inst._class_def
+            prop = class_def.properties.get(name_lower)
+            if prop is not None and prop.get_body is not None:
+                return self._call_class_property_get(
+                    inst, prop, prop_name=name_lower,
+                )
+            method_def = class_def.methods.get(name_lower)
+            if method_def is not None and not method_def.proc.parameters:
+                return self._call_class_method(
+                    inst, method_def.proc, [], args_evaluated=True,
+                )
+
         return EMPTY
 
     def _evaluate_BinaryExpression(self, node: BinaryExpression) -> Any:
@@ -1034,6 +1307,10 @@ class Interpreter:
                     f"Object doesn't support this property or method: {node.member}"
                 )
 
+        # Handle user-defined class instances
+        if isinstance(obj, VBScriptClassInstance):
+            return self._class_instance_member_get(obj, node.member)
+
         # Handle dictionary-like objects
         if isinstance(obj, dict):
             return obj.get(node.member.lower(), EMPTY)
@@ -1062,6 +1339,25 @@ class Interpreter:
         if func_name in self._builtins:
             args = [self._evaluate(arg) for arg in node.arguments]
             return self._builtins[func_name](*args)
+
+        # Implicit member resolution: inside a class method, bare function
+        # calls resolve to methods on the current instance.
+        inst = self._current_instance
+        if inst is not None:
+            class_def = inst._class_def
+            method_def = class_def.methods.get(func_name)
+            if method_def is not None:
+                args = [self._evaluate(arg) for arg in node.arguments]
+                return self._call_class_method(
+                    inst, method_def.proc, args, args_evaluated=True,
+                )
+            prop = class_def.properties.get(func_name)
+            if prop is not None and prop.get_body is not None:
+                args = [self._evaluate(arg) for arg in node.arguments]
+                return self._call_class_property_get(
+                    inst, prop, args, args_evaluated=True,
+                    prop_name=func_name,
+                )
 
         raise VBScriptError(f'Unknown function: {node.name}')
 
@@ -1108,6 +1404,10 @@ class Interpreter:
 
         if callable(obj):
             return obj(*args)
+
+        # Handle user-defined class instances
+        if isinstance(obj, VBScriptClassInstance):
+            return self._class_instance_method_call(obj, method, args)
 
         # Handle WScript object with case-insensitive method lookup
         if isinstance(obj, WScriptObject):
@@ -1186,8 +1486,109 @@ class Interpreter:
 
     def _evaluate_NewExpression(self, node: NewExpression) -> Any:
         """Evaluate a New expression."""
+        class_name_lower = node.class_name.lower() if isinstance(node.class_name, str) else node.class_name.name.lower()
+        class_def = self._class_defs.get(class_name_lower)
+        if class_def is None:
+            raise VBScriptError(f'Class not defined: {node.class_name}')
+        return self._instantiate_class(class_def)
+
+    def _evaluate_MeExpression(self, node: MeExpression) -> Any:
+        """Evaluate the Me keyword."""
+        if self._current_instance is None:
+            raise VBScriptError('Invalid use of Me keyword')
+        return self._current_instance
+
+    # ------------------------------------------------------------------
+    #  Class instance helpers
+    # ------------------------------------------------------------------
+
+    def _class_instance_member_get(self, obj: VBScriptClassInstance, member: str) -> Any:
+        """Read a member (field, property, or zero-arg method) from a class instance."""
+        name_lower = member.lower()
+        class_def = obj._class_def
+
+        # Check properties first (Property Get)
+        prop = class_def.properties.get(name_lower)
+        if prop is not None:
+            return self._call_class_property_get(obj, prop, prop_name=name_lower)
+
+        # Check fields (O(1) dict lookup)
+        orig_name = class_def.field_names.get(name_lower)
+        if orig_name is not None:
+            return obj._env.get(orig_name)
+
+        # Check methods - invoke zero-arg methods immediately
+        method_def = class_def.methods.get(name_lower)
+        if method_def is not None:
+            if not method_def.proc.parameters:
+                return self._call_class_method(obj, method_def.proc, [], args_evaluated=True)
+            return method_def
+
         raise VBScriptError(
-            f'CreateObject should be used instead of New for: {node.class_name}'
+            f"Object doesn't support this property or method: {member}"
+        )
+
+    def _class_instance_member_set(self, obj: VBScriptClassInstance, member: str, value: Any) -> None:
+        """Write to a member (field or Property Let/Set) on a class instance."""
+        name_lower = member.lower()
+        class_def = obj._class_def
+
+        # Check Property Let/Set first
+        prop = class_def.properties.get(name_lower)
+        if prop is not None:
+            if prop.let_body is not None:
+                self._call_class_property_let(obj, prop, [value], args_evaluated=True)
+                return
+            if prop.set_body is not None:
+                self._call_class_property_set(obj, prop, [value], args_evaluated=True)
+                return
+
+        # Check fields (O(1) dict lookup)
+        orig_name = class_def.field_names.get(name_lower)
+        if orig_name is not None:
+            obj._env.set(orig_name, value)
+            return
+
+        raise VBScriptError(
+            f"Object doesn't support this property or method: {member}"
+        )
+
+    def _class_instance_method_call(self, obj: VBScriptClassInstance, method: str, args: list) -> Any:
+        """Call a method (Sub/Function) or Property Get with args on a class instance."""
+        name_lower = method.lower()
+        class_def = obj._class_def
+
+        # Check methods
+        method_def = class_def.methods.get(name_lower)
+        if method_def is not None:
+            return self._call_class_method(
+                obj, method_def.proc, args, args_evaluated=True,
+            )
+
+        # Check Property Get with parameters (e.g. indexed property)
+        prop = class_def.properties.get(name_lower)
+        if prop is not None and prop.get_body is not None:
+            return self._call_class_property_get(
+                obj, prop, args, args_evaluated=True, prop_name=name_lower,
+            )
+
+        # Default member invocation with args (e.g. obj(args))
+        if not method and class_def.default_member:
+            default_name = class_def.default_member
+            # Try method first
+            dm = class_def.methods.get(default_name)
+            if dm is not None:
+                return self._call_class_method(
+                    obj, dm.proc, args, args_evaluated=True,
+                )
+            dp = class_def.properties.get(default_name)
+            if dp is not None and dp.get_body is not None:
+                return self._call_class_property_get(
+                    obj, dp, args, args_evaluated=True, prop_name=default_name,
+                )
+
+        raise VBScriptError(
+            f"Object doesn't support this property or method: {method}"
         )
 
     # ------------------------------------------------------------------

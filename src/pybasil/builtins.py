@@ -28,6 +28,7 @@ from .runtime import (
     VBScriptNull,
     VBScriptArray,
     VBScriptDictionary,
+    VBScriptClassInstance,
     WScriptObject,
 )
 
@@ -315,6 +316,8 @@ def builtin_typename(interp: Interpreter, value: Any) -> str:
         return 'Null'
     if isinstance(value, VBScriptNothing):
         return 'Nothing'
+    if isinstance(value, VBScriptClassInstance):
+        return value.class_name
     if isinstance(value, VBScriptArray):
         return 'Variant()'
     if isinstance(value, bool):
