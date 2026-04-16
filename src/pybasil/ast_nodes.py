@@ -43,6 +43,7 @@ class ExitType(Enum):
     DO = auto()  # Exit Do
     SUB = auto()  # Exit Sub
     FUNCTION = auto()  # Exit Function
+    PROPERTY = auto()  # Exit Property
 
 
 class LoopConditionType(Enum):
@@ -233,6 +234,63 @@ class FunctionStatement(ASTNode):
     body: List[ASTNode] = field(default_factory=list)
 
 
+@dataclass
+class MeExpression(ASTNode):
+    pass
+
+
+# Class-related nodes
+@dataclass
+class PropertyGetStatement(ASTNode):
+    name: str
+    parameters: List[Parameter] = field(default_factory=list)
+    body: List[ASTNode] = field(default_factory=list)
+    is_public: bool = True
+    is_default: bool = False
+
+
+@dataclass
+class PropertyLetStatement(ASTNode):
+    name: str
+    parameters: List[Parameter] = field(default_factory=list)
+    body: List[ASTNode] = field(default_factory=list)
+    is_public: bool = True
+
+
+@dataclass
+class PropertySetStatement(ASTNode):
+    name: str
+    parameters: List[Parameter] = field(default_factory=list)
+    body: List[ASTNode] = field(default_factory=list)
+    is_public: bool = True
+
+
+@dataclass
+class ClassMemberSub(ASTNode):
+    sub: SubStatement
+    is_public: bool = True
+    is_default: bool = False
+
+
+@dataclass
+class ClassMemberFunction(ASTNode):
+    function: FunctionStatement
+    is_public: bool = True
+    is_default: bool = False
+
+
+@dataclass
+class ClassMemberField(ASTNode):
+    dim: DimStatement
+    is_public: bool = True
+
+
+@dataclass
+class ClassStatement(ASTNode):
+    name: str
+    members: List[ASTNode] = field(default_factory=list)
+
+
 # Control Flow Statements
 @dataclass
 class ElseIfClause(ASTNode):
@@ -386,6 +444,7 @@ Expression = Union[
     MethodCall,
     NewExpression,
     ArrayAccess,
+    MeExpression,
 ]
 
 # Type alias for statements
@@ -405,6 +464,7 @@ Statement = Union[
     ExitStatement,
     SubStatement,
     FunctionStatement,
+    ClassStatement,
     OnErrorResumeNextStatement,
     OnErrorGoToStatement,
     ReDimStatement,

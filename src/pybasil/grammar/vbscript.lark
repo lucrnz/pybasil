@@ -19,6 +19,7 @@ statement: dim_statement
          | exit_statement
          | sub_statement
          | function_statement
+         | class_statement
          | call_statement
          | on_error_statement
          | redim_statement
@@ -108,8 +109,8 @@ do_statement: DO_KW WHILE_KW expression block LOOP_KW         -> do_while_pretes
             | DO_KW block LOOP_KW UNTIL_KW expression         -> do_until_posttest
             | DO_KW block LOOP_KW                             -> do_infinite
 
-// Exit statement: Exit For | Exit Do | Exit Sub | Exit Function
-exit_statement: EXIT_KW (FOR_KW | DO_KW | SUB_KW | FUNCTION_KW)
+// Exit statement: Exit For | Exit Do | Exit Sub | Exit Function | Exit Property
+exit_statement: EXIT_KW (FOR_KW | DO_KW | SUB_KW | FUNCTION_KW | PROPERTY_KW)
 
 // ReDim statement: ReDim [Preserve] name(size) [, name2(size2)]*
 redim_statement: REDIM_KW PRESERVE_KW? redim_var ("," redim_var)*
@@ -123,6 +124,36 @@ sub_statement: SUB_KW identifier ("(" param_list? ")")? block END_KW SUB_KW
 
 // Function procedure: Function name[(params)] ... End Function
 function_statement: FUNCTION_KW identifier ("(" param_list? ")")? block END_KW FUNCTION_KW
+
+// Class statement: Class Name ... End Class
+class_statement: CLASS_KW identifier _NL class_body END_KW CLASS_KW
+
+// Class body - list of members
+class_body: (_NL | class_member)*
+
+// Class members
+class_member: class_dim_statement
+            | class_sub_statement
+            | class_function_statement
+            | class_property_get_statement
+            | class_property_let_statement
+            | class_property_set_statement
+
+// Class Dim statement - Private/Public Field declarations
+// Supports: Dim x, Private x, Public x, Private Dim x, etc.
+class_dim_statement: (PUBLIC_KW | PRIVATE_KW) dim_var ("," dim_var)*
+                   | (PUBLIC_KW | PRIVATE_KW)? dim_statement
+
+// Class Sub - Private/Public/Default
+class_sub_statement: (PUBLIC_KW DEFAULT_KW | PUBLIC_KW | PRIVATE_KW)? SUB_KW identifier ("(" param_list? ")")? block END_KW SUB_KW
+
+// Class Function - Private/Public/Default
+class_function_statement: (PUBLIC_KW DEFAULT_KW | PUBLIC_KW | PRIVATE_KW)? FUNCTION_KW identifier ("(" param_list? ")")? block END_KW FUNCTION_KW
+
+// Property Get/Let/Set
+class_property_get_statement: (PUBLIC_KW DEFAULT_KW | PUBLIC_KW | PRIVATE_KW)? PROPERTY_KW GET_KW identifier ("(" param_list? ")")? block END_KW PROPERTY_KW
+class_property_let_statement: (PUBLIC_KW | PRIVATE_KW)? PROPERTY_KW LET_KW identifier ("(" param_list? ")")? block END_KW PROPERTY_KW
+class_property_set_statement: (PUBLIC_KW | PRIVATE_KW)? PROPERTY_KW SET_KW identifier ("(" param_list? ")")? block END_KW PROPERTY_KW
 
 // Parameter list - each parameter can have optional ByRef/ByVal modifier
 // Use NAME directly to avoid conflicts with identifier/atom
@@ -193,9 +224,13 @@ empty_args: "(" ")"
 
 // Primary expressions (atoms)
 ?atom: literal
+     | me_expr
      | identifier
      | paren_expr
      | new_expr
+
+// Me expression
+me_expr: ME_KW
 
 ?paren_expr: "(" expression ")"
 
@@ -252,6 +287,10 @@ CALL_KW.2: /call(?![_a-zA-Z0-9])/i
 CLASS_KW.2: /class(?![_a-zA-Z0-9])/i
 PROPERTY_KW.2: /property(?![_a-zA-Z0-9])/i
 GET_KW.2: /get(?![_a-zA-Z0-9])/i
+PUBLIC_KW.2: /public(?![_a-zA-Z0-9])/i
+PRIVATE_KW.2: /private(?![_a-zA-Z0-9])/i
+DEFAULT_KW.2: /default(?![_a-zA-Z0-9])/i
+ME_KW.2: /me(?![_a-zA-Z0-9])/i
 BYREF_KW.2: /byref(?![_a-zA-Z0-9])/i
 BYVAL_KW.2: /byval(?![_a-zA-Z0-9])/i
 NOT_KW.2: /not(?![_a-zA-Z0-9])/i

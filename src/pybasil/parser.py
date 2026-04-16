@@ -49,6 +49,14 @@ from .ast_nodes import (
     ExitStatement,
     SubStatement,
     FunctionStatement,
+    MeExpression,
+    ClassStatement,
+    ClassMemberField,
+    ClassMemberSub,
+    ClassMemberFunction,
+    PropertyGetStatement,
+    PropertyLetStatement,
+    PropertySetStatement,
     Parameter,
     BinaryOp,
     UnaryOp,
@@ -193,17 +201,44 @@ class VBScriptTransformer(Transformer):
         return SetStatement(variable=var_name, indices=indices, expression=expr)
 
     def property_assignment_statement(self, items: List) -> PropertyAssignmentStatement:
-        """Transform property assignment statement."""
-        # items: [target, "=", expression]
-        # Filter out the EQUAL token
+        """Transform property assignment statement.
+
+        The grammar delivers: atom, then one-or-more access pieces
+        (.ident, (args), ()), then the value expression.  The EQUAL
+        token is stripped by Lark.  The last non-token item is always
+        the value; everything before it forms the target chain.
+        """
         filtered = [item for item in items if not isinstance(item, Token)]
+        if len(filtered) < 2:
+            return None
 
-        if len(filtered) >= 2:
-            target = filtered[0]
-            expr = filtered[1]
-            return PropertyAssignmentStatement(target=target, expression=expr)
+        target_items = filtered[:-1]
+        value_expr = filtered[-1]
 
-        return None
+        # Build the target chain (same logic as call_or_access)
+        result = target_items[0]
+        for i in range(1, len(target_items)):
+            item = target_items[i]
+            if isinstance(item, Identifier):
+                result = MemberAccess(object=result, member=item.name)
+            elif isinstance(item, list):
+                if isinstance(result, Identifier):
+                    result = ArrayAccess(name=result.name, indices=item)
+                elif isinstance(result, MemberAccess):
+                    result = MethodCall(
+                        object=result.object, method=result.member, arguments=item
+                    )
+                else:
+                    result = MethodCall(object=result, method='', arguments=item)
+            elif item is None:
+                if isinstance(result, Identifier):
+                    result = FunctionCall(name=result.name, arguments=[])
+                elif isinstance(result, MemberAccess):
+                    result = MethodCall(
+                        object=result.object, method=result.member, arguments=[]
+                    )
+
+        return PropertyAssignmentStatement(target=result, expression=value_expr)
 
     def expression_statement(self, items: List) -> ExpressionStatement:
         if len(items) == 1:
@@ -478,10 +513,10 @@ class VBScriptTransformer(Transformer):
         return items
 
     def new_expr(self, items: List) -> NewExpression:
-        class_name = (
-            str(items[0]) if isinstance(items[0], Identifier) else str(items[0])
-        )
-        return NewExpression(class_name=class_name)
+        for item in items:
+            if isinstance(item, Identifier):
+                return NewExpression(class_name=item.name)
+        return NewExpression(class_name=str(items[-1]))
 
     # Control Flow transformers
     def block(self, items: List) -> List[ASTNode]:
@@ -784,7 +819,7 @@ class VBScriptTransformer(Transformer):
 
     def exit_statement(self, items: List) -> ExitStatement:
         """Transform exit statement."""
-        # items: [EXIT_KW, FOR_KW | DO_KW | SUB_KW | FUNCTION_KW]
+        # items: [EXIT_KW, FOR_KW | DO_KW | SUB_KW | FUNCTION_KW | PROPERTY_KW]
         for item in items:
             if isinstance(item, Token):
                 if item.type == 'FOR_KW':
@@ -795,6 +830,8 @@ class VBScriptTransformer(Transformer):
                     return ExitStatement(exit_type=ExitType.SUB)
                 elif item.type == 'FUNCTION_KW':
                     return ExitStatement(exit_type=ExitType.FUNCTION)
+                elif item.type == 'PROPERTY_KW':
+                    return ExitStatement(exit_type=ExitType.PROPERTY)
 
         # Default to Exit For if we can't determine
         return ExitStatement(exit_type=ExitType.FOR)
@@ -933,6 +970,124 @@ class VBScriptTransformer(Transformer):
                 return OnErrorGoToStatement(label=int(item.value))
         # Default to 0 if not found
         return OnErrorGoToStatement(label=0)
+
+    # ------------------------------------------------------------------
+    #  Me expression
+    # ------------------------------------------------------------------
+
+    def me_expr(self, items: List) -> MeExpression:
+        return MeExpression()
+
+    # ------------------------------------------------------------------
+    #  Class transformers
+    # ------------------------------------------------------------------
+
+    def class_statement(self, items: List) -> ClassStatement:
+        """Transform Class ... End Class."""
+        filtered = [item for item in items if not isinstance(item, Token)]
+        name = ''
+        members = []
+        for item in filtered:
+            if isinstance(item, Identifier):
+                name = item.name
+            elif isinstance(item, list):
+                members = item
+        return ClassStatement(name=name, members=members)
+
+    def class_body(self, items: List) -> List[ASTNode]:
+        return [item for item in items if item is not None]
+
+    def class_member(self, items: List) -> ASTNode:
+        items = [i for i in items if i is not None]
+        return items[0] if items else None
+
+    def class_dim_statement(self, items: List) -> ClassMemberField:
+        """Transform a class field declaration."""
+        is_public = True  # default
+        dim = None
+        dim_vars = []
+        for item in items:
+            if isinstance(item, Token):
+                if item.type == 'PRIVATE_KW':
+                    is_public = False
+                elif item.type == 'PUBLIC_KW':
+                    is_public = True
+            elif isinstance(item, DimStatement):
+                dim = item
+            elif isinstance(item, DimVariable):
+                dim_vars.append(item)
+        if dim is None and dim_vars:
+            dim = DimStatement(variables=dim_vars)
+        return ClassMemberField(dim=dim, is_public=is_public)
+
+    def _parse_class_proc_flags(self, items: List):
+        """Extract visibility/default flags and non-token items."""
+        is_public = True
+        is_default = False
+        filtered = []
+        for item in items:
+            if isinstance(item, Token):
+                if item.type == 'PRIVATE_KW':
+                    is_public = False
+                elif item.type == 'PUBLIC_KW':
+                    is_public = True
+                elif item.type == 'DEFAULT_KW':
+                    is_default = True
+                # skip other keywords (SUB_KW, FUNCTION_KW, etc.)
+            else:
+                filtered.append(item)
+        return is_public, is_default, filtered
+
+    def _extract_proc_parts(self, filtered: List):
+        """Extract name, params, body from a filtered list of non-token items."""
+        name = ''
+        parameters = []
+        body = []
+        for item in filtered:
+            if isinstance(item, Identifier):
+                name = item.name
+            elif isinstance(item, list):
+                if all(isinstance(p, Parameter) for p in item):
+                    parameters = item
+                else:
+                    body = item
+            elif isinstance(item, Parameter):
+                parameters = [item]
+        return name, parameters, body
+
+    def class_sub_statement(self, items: List) -> ClassMemberSub:
+        is_public, is_default, filtered = self._parse_class_proc_flags(items)
+        name, parameters, body = self._extract_proc_parts(filtered)
+        sub = SubStatement(name=name, parameters=parameters, body=body)
+        return ClassMemberSub(sub=sub, is_public=is_public, is_default=is_default)
+
+    def class_function_statement(self, items: List) -> ClassMemberFunction:
+        is_public, is_default, filtered = self._parse_class_proc_flags(items)
+        name, parameters, body = self._extract_proc_parts(filtered)
+        func = FunctionStatement(name=name, parameters=parameters, body=body)
+        return ClassMemberFunction(function=func, is_public=is_public, is_default=is_default)
+
+    def class_property_get_statement(self, items: List) -> PropertyGetStatement:
+        is_public, is_default, filtered = self._parse_class_proc_flags(items)
+        name, parameters, body = self._extract_proc_parts(filtered)
+        return PropertyGetStatement(
+            name=name, parameters=parameters, body=body,
+            is_public=is_public, is_default=is_default,
+        )
+
+    def class_property_let_statement(self, items: List) -> PropertyLetStatement:
+        is_public, _is_default, filtered = self._parse_class_proc_flags(items)
+        name, parameters, body = self._extract_proc_parts(filtered)
+        return PropertyLetStatement(
+            name=name, parameters=parameters, body=body, is_public=is_public,
+        )
+
+    def class_property_set_statement(self, items: List) -> PropertySetStatement:
+        is_public, _is_default, filtered = self._parse_class_proc_flags(items)
+        name, parameters, body = self._extract_proc_parts(filtered)
+        return PropertySetStatement(
+            name=name, parameters=parameters, body=body, is_public=is_public,
+        )
 
 
 class _VBScriptPostLexer:
