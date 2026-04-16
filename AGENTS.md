@@ -15,5 +15,5 @@ Run linter (auto-fix): `uv run ruff check --fix`
 Keep behavior aligned with existing VBScript semantics covered by tests
 Add or update tests for any behavior change.
 Keep changes scoped and consistent with current style (typed Python, dataclasses for AST, clear method naming).
-Update `README.md` when language support or public API changes.
+Update `docs/language_support_status.md` when language support changes, and `README.md` when public API changes.
 Follow conventional commits for git

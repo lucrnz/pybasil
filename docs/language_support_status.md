@@ -1,0 +1,59 @@
+# Language Support Status
+
+- **Tree-walking interpreter** targeting full VBScript 6.0 compatibility
+- **Variables & literals**:
+  - Variables are case-insensitive
+  - Implicit variable creation is supported (`Empty` default)
+  - `Dim` declarations (single and multiple variables)
+  - Literals: numbers (including scientific notation), hex (`&HFF`), octal (`&O77`), strings, booleans, `Nothing`, `Empty`, `Null`
+- **Statements**: `Dim`, assignments (`Let` optional), `Set`, `Call`, property assignments (`obj.Prop = value`), and expression statements (for things like `WScript.Echo`)
+- **Operators**:
+  - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
+  - String: `&`
+  - Comparison: `=`, `<>`, `<`, `>`, `<=`, `>=`, `Is`
+  - Logical: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp`
+- **Control flow**:
+  - `If ... Then ... ElseIf ... Else ... End If`
+  - `Select Case ... Case ... Case Else ... End Select` (including `Case x To y` ranges and `Case Is > x` comparisons)
+  - `For ... To ... [Step ...] ... Next`
+  - `For Each ... In ... Next`
+  - `While ... Wend`
+  - `Do While/Until ... Loop`, `Do ... Loop While/Until`, and `Do ... Loop`
+  - `Exit For` and `Exit Do`
+- **Arrays**:
+  - Fixed-size arrays: `Dim arr(5)`
+  - Dynamic arrays: `Dim arr()`, `ReDim arr(5)`, `ReDim Preserve arr(10)`
+  - Multi-dimensional arrays: `Dim matrix(2, 2)`
+  - `UBound`, `LBound`, `Array`, `Erase`
+- **Error handling**:
+  - `On Error Resume Next` - continue execution after errors
+  - `On Error GoTo 0` - reset error handling to default
+  - `Err` object with `Number`, `Source`, `Description`, `HelpFile`, `HelpContext` properties
+  - `Err.Clear` - clear error information
+  - `Err.Raise` - raise custom errors
+- **Procedures**:
+  - `Sub ... End Sub` and `Function ... End Function`
+  - `Call` statements and implicit procedure calls
+  - `ByRef` / `ByVal` parameters (`ByRef` default)
+  - `Exit Sub`, `Exit Function`, and `Exit Property`
+  - Recursive function/procedure calls
+- **Built-in runtime**:
+  - `WScript.Echo`, `WScript.Quit`
+  - String helpers (`Len`, `Left`, `Right`, `Mid`, `Trim`, `LTrim`, `RTrim`, `UCase`, `LCase`, `InStr`, `Replace`, `Split`, `Join`)
+  - Conversion/type helpers (`CStr`, `CInt`, `CLng`, `CDbl`, `CBool`, `CDate`, `IsNumeric`, `IsArray`, `IsDate`, `IsEmpty`, `IsNull`, `IsObject`, `TypeName`, `VarType`)
+  - Math/random helpers (`Abs`, `Sqr`, `Int`, `Fix`, `Round`, `Rnd`, `Randomize`)
+  - `MsgBox`, `InputBox`, `CreateObject`, `GetObject` (simplified behavior)
+- **Classes**:
+  - `Class ... End Class` definitions
+  - `New` expression for instantiation
+  - `Me` keyword
+  - `Public` / `Private` member visibility
+  - Fields (`Public` / `Private` variable declarations)
+  - Methods (`Sub` and `Function` members)
+  - `Property Get`, `Property Let`, `Property Set`
+  - `Default` keyword for default members
+  - `Class_Initialize` lifecycle method
+- **Objects**:
+  - `Scripting.Dictionary` via `CreateObject` (`Add`, `Exists`, `Items`, `Keys`, `Remove`, `RemoveAll`, `Item`, `Key`, `Count`, `CompareMode`)
+- **Comments**: single quote (`'`) and `Rem`
+- **CLI**: execute code from files, stdin, or `-c/--code`
