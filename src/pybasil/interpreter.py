@@ -97,6 +97,91 @@ from .runtime import (
 )
 from .builtins import get_builtin_table
 
+# ---------------------------------------------------------------------------
+#  VBScript built-in constants (VBScript 6.0)
+# ---------------------------------------------------------------------------
+
+VBSCRIPT_CONSTANTS: Dict[str, Any] = {
+    # String constants
+    'vbcr': '\r',
+    'vblf': '\n',
+    'vbcrlf': '\r\n',
+    'vbnewline': '\r\n',
+    'vbtab': '\t',
+    'vbnullchar': '\x00',
+    'vbnullstring': '',
+    'vbformfeed': '\x0c',
+    'vbverticaltab': '\x0b',
+    'vbback': '\x08',
+    # VarType constants
+    'vbempty': 0,
+    'vbnull': 1,
+    'vbinteger': 2,
+    'vblong': 3,
+    'vbsingle': 4,
+    'vbdouble': 5,
+    'vbcurrency': 6,
+    'vbdate': 7,
+    'vbstring': 8,
+    'vbobject': 9,
+    'vberror': 10,
+    'vbboolean': 11,
+    'vbvariant': 12,
+    'vbdataobject': 13,
+    'vbdecimal': 14,
+    'vbbyte': 17,
+    'vbarray': 8192,
+    # MsgBox button constants
+    'vbokonly': 0,
+    'vbokcancel': 1,
+    'vbabortretryignore': 2,
+    'vbyesnocancel': 3,
+    'vbyesno': 4,
+    'vbretrycancel': 5,
+    'vbcritical': 16,
+    'vbquestion': 32,
+    'vbexclamation': 48,
+    'vbinformation': 64,
+    'vbdefaultbutton1': 0,
+    'vbdefaultbutton2': 256,
+    'vbdefaultbutton3': 512,
+    'vbdefaultbutton4': 768,
+    'vbapplicationmodal': 0,
+    'vbsystemmodal': 4096,
+    # MsgBox return value constants
+    'vbok': 1,
+    'vbcancel': 2,
+    'vbabort': 3,
+    'vbretry': 4,
+    'vbignore': 5,
+    'vbyes': 6,
+    'vbno': 7,
+    # Comparison constants
+    'vbbinarycompare': 0,
+    'vbtextcompare': 1,
+    'vbdatabasecompare': 2,
+    # Tristate constants
+    'vbusedefault': -2,
+    'vbtrue': -1,
+    'vbfalse': 0,
+    # Color constants
+    'vbblack': 0x000000,
+    'vbred': 0x0000FF,
+    'vbgreen': 0x00FF00,
+    'vbyellow': 0x00FFFF,
+    'vbblue': 0xFF0000,
+    'vbmagenta': 0xFF00FF,
+    'vbcyan': 0xFFFF00,
+    'vbwhite': 0xFFFFFF,
+    # Miscellaneous constants
+    'vbobjecterror': -2147221504,
+    'vbgeneraldate': 0,
+    'vblongdate': 1,
+    'vbshortdate': 2,
+    'vblongtime': 3,
+    'vbshorttime': 4,
+}
+
 
 def _is_numeric_not_bool(value: Any) -> bool:
     """True when *value* is int or float but not bool."""
@@ -125,6 +210,10 @@ class Interpreter:
 
         # Create Err object
         self._environment.define('Err', self._err)
+
+        # Built-in constants (seeded into the global environment)
+        for name, value in VBSCRIPT_CONSTANTS.items():
+            self._environment.define(name, value)
 
         # Built-in functions (defined in builtins.py)
         self._builtins: Dict[str, Callable] = get_builtin_table(self)

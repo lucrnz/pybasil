@@ -55,5 +55,13 @@
   - `Class_Initialize` lifecycle method
 - **Objects**:
   - `Scripting.Dictionary` via `CreateObject` (`Add`, `Exists`, `Items`, `Keys`, `Remove`, `RemoveAll`, `Item`, `Key`, `Count`, `CompareMode`)
+- **Built-in constants**:
+  - String: `vbCr`, `vbLf`, `vbCrLf`, `vbNewLine`, `vbTab`, `vbNullChar`, `vbNullString`, `vbBack`, `vbFormFeed`, `vbVerticalTab`
+  - VarType: `vbEmpty`, `vbNull`, `vbInteger`, `vbLong`, `vbSingle`, `vbDouble`, `vbCurrency`, `vbDate`, `vbString`, `vbObject`, `vbError`, `vbBoolean`, `vbVariant`, `vbDataObject`, `vbDecimal`, `vbByte`, `vbArray`
+  - MsgBox: `vbOKOnly`, `vbOKCancel`, `vbAbortRetryIgnore`, `vbYesNoCancel`, `vbYesNo`, `vbRetryCancel`, `vbCritical`, `vbQuestion`, `vbExclamation`, `vbInformation`, `vbDefaultButton1`-`4`, `vbApplicationModal`, `vbSystemModal`, `vbOK`, `vbCancel`, `vbAbort`, `vbRetry`, `vbIgnore`, `vbYes`, `vbNo`
+  - Comparison: `vbBinaryCompare`, `vbTextCompare`, `vbDatabaseCompare`
+  - Tristate: `vbTrue`, `vbFalse`, `vbUseDefault`
+  - Color: `vbBlack`, `vbRed`, `vbGreen`, `vbYellow`, `vbBlue`, `vbMagenta`, `vbCyan`, `vbWhite`
+  - Misc: `vbObjectError`, `vbGeneralDate`, `vbLongDate`, `vbShortDate`, `vbLongTime`, `vbShortTime`
 - **Comments**: single quote (`'`) and `Rem`
 - **CLI**: execute code from files, stdin, or `-c/--code`
