@@ -26,6 +26,7 @@ from .runtime import (
     VBScriptNothing,
     VBScriptEmpty,
     VBScriptNull,
+    EMPTY,
     VBScriptArray,
     VBScriptDictionary,
     VBScriptClassInstance,
@@ -456,6 +457,59 @@ def builtin_array(interp: Interpreter, *args: Any) -> VBScriptArray:
 
 
 # ---------------------------------------------------------------------------
+#  Dynamic code execution (Execute, ExecuteGlobal, Eval)
+# ---------------------------------------------------------------------------
+
+def builtin_eval(interp: 'Interpreter', expr_string: Any) -> Any:
+    """Eval function - evaluate a VBScript expression string and return its value."""
+    from .parser import parse as vbs_parse
+    from .ast_nodes import AssignmentStatement
+
+    code_str = interp._to_string(expr_string)
+    if not code_str.strip():
+        return EMPTY
+
+    wrapper = f"__pybasil_eval__ = {code_str}"
+    program = vbs_parse(wrapper)
+    if program.statements and isinstance(program.statements[0], AssignmentStatement):
+        return interp._evaluate(program.statements[0].expression)
+    return EMPTY
+
+
+def builtin_execute(interp: 'Interpreter', code_string: Any) -> None:
+    """Execute statement - parse and execute VBScript code in the current scope."""
+    from .parser import parse as vbs_parse
+
+    code_str = interp._to_string(code_string)
+    if not code_str.strip():
+        return None
+
+    program = vbs_parse(code_str)
+    for stmt in program.statements:
+        interp._execute_with_error_handling(stmt)
+    return None
+
+
+def builtin_executeglobal(interp: 'Interpreter', code_string: Any) -> None:
+    """ExecuteGlobal statement - parse and execute VBScript code in the global scope."""
+    from .parser import parse as vbs_parse
+
+    code_str = interp._to_string(code_string)
+    if not code_str.strip():
+        return None
+
+    program = vbs_parse(code_str)
+    old_env = interp._environment
+    interp._environment = interp._global_environment
+    try:
+        for stmt in program.statements:
+            interp._execute_with_error_handling(stmt)
+    finally:
+        interp._environment = old_env
+    return None
+
+
+# ---------------------------------------------------------------------------
 #  Registration helper
 # ---------------------------------------------------------------------------
 
@@ -510,4 +564,7 @@ def get_builtin_table(interp: Interpreter) -> dict:
         'ubound': _bind(builtin_ubound),
         'lbound': _bind(builtin_lbound),
         'array': _bind(builtin_array),
+        'eval': _bind(builtin_eval),
+        'execute': _bind(builtin_execute),
+        'executeglobal': _bind(builtin_executeglobal),
     }

@@ -25,8 +25,8 @@ statement: dim_statement
          | redim_statement
          | erase_statement
 
-// Statement separator - colon allows multiple statements on one line
-%ignore COLON
+// Statement separator - colon is converted to _NL by the postlexer
+// (not %ignore'd, so compound statements like Class...End Class work with colons)
 
 // Dim statement - can declare single or multiple variables (with optional array dimensions)
 dim_statement: DIM_KW dim_var ("," dim_var)*
@@ -85,6 +85,7 @@ block_statement: dim_statement
          | do_statement
          | while_statement
          | exit_statement
+         | call_statement
          | on_error_statement
          | redim_statement
          | erase_statement

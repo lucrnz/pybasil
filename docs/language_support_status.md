@@ -37,6 +37,10 @@
   - `ByRef` / `ByVal` parameters (`ByRef` default)
   - `Exit Sub`, `Exit Function`, and `Exit Property`
   - Recursive function/procedure calls
+- **Dynamic code execution**:
+  - `Eval(expr)` - evaluate a VBScript expression string and return its value
+  - `Execute code` - parse and execute VBScript code in the current scope
+  - `ExecuteGlobal code` - parse and execute VBScript code in the global scope
 - **Built-in runtime**:
   - `WScript.Echo`, `WScript.Quit`
   - String helpers (`Len`, `Left`, `Right`, `Mid`, `Trim`, `LTrim`, `RTrim`, `UCase`, `LCase`, `InStr`, `Replace`, `Split`, `Join`)

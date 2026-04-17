@@ -193,6 +193,7 @@ class Interpreter:
 
     def __init__(self, output_stream=None):
         self._environment = Environment()
+        self._global_environment = self._environment
         self._output_stream = output_stream
         self._procedures: Dict[str, Procedure] = {}  # User-defined procedures
         self._class_defs: Dict[str, VBScriptClassDef] = {}  # User-defined classes

@@ -44,3 +44,13 @@ class TestRegressionScripts:
             'test5: i=1',
             'test5: i=2',
         ]
+
+    def test_regression_script_gamma_execute_eval(self):
+        """Execute, ExecuteGlobal, and Eval dynamic code execution."""
+        script = RegressionTestsUtils.load_script('gamma-execute-eval.vbs')
+        program = parse(script)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('totalCount') == 86
+        assert interpreter._environment.get('passCount') == 86
+        assert interpreter._environment.get('failCount') == 0

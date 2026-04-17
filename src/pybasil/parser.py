@@ -1095,7 +1095,7 @@ class _VBScriptPostLexer:
     expressions (e.g. function calls spanning lines) parse correctly,
     while still treating top-level newlines as statement separators."""
 
-    always_accept = ('_NL',)
+    always_accept = ('_NL', 'COLON')
 
     def process(self, stream: Iterator[Token]) -> Iterator[Token]:
         paren_depth = 0
@@ -1105,9 +1105,9 @@ class _VBScriptPostLexer:
             elif token == ')':
                 paren_depth = max(0, paren_depth - 1)
 
-            if token.type == '_NL':
+            if token.type in ('_NL', 'COLON'):
                 if paren_depth == 0:
-                    yield token
+                    yield Token('_NL', '\n')
                 continue
 
             yield token
