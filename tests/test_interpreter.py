@@ -1990,6 +1990,20 @@ class TestDynamicCodeErrorHandling:
         assert output.getvalue().strip().split('\n') == ['1002', 'True']
 
 
+    @pytest.mark.parametrize('statement', ['x = Execute("y = 1")', 'x = ExecuteGlobal("y = 1")'])
+    def test_execute_and_executeglobal_are_rejected_in_expression_position(self, statement):
+        interpreter = Interpreter()
+        program = parse(statement)
+        with pytest.raises(VBScriptError, match='Syntax error'):
+            interpreter.interpret(program)
+
+    @pytest.mark.parametrize('statement', ['Execute "y = 1"', 'ExecuteGlobal "y = 1"'])
+    def test_execute_and_executeglobal_still_work_as_statements(self, statement):
+        output = io.StringIO()
+        run('\n'.join([statement, 'WScript.Echo y']), output_stream=output)
+        assert output.getvalue().strip() == '1'
+
+
 class TestSelectCase:
     """Test Select Case statement."""
 

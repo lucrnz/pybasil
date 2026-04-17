@@ -188,6 +188,9 @@ def _is_numeric_not_bool(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+_STATEMENT_ONLY_BUILTINS = {'execute', 'executeglobal'}
+
+
 class Interpreter:
     """Tree-walking interpreter for VBScript AST."""
 
@@ -553,6 +556,9 @@ class Interpreter:
             proc = self._procedures[proc_name]
             return self._execute_procedure(proc, arguments)
 
+        if proc_name in _STATEMENT_ONLY_BUILTINS:
+            raise VBScriptError('Syntax error')
+
         # Check for built-in function
         if proc_name in self._builtins:
             args = [self._evaluate(arg) for arg in arguments]
@@ -653,10 +659,19 @@ class Interpreter:
         # Check if this is a procedure call (FunctionCall to a Sub or Function)
         if isinstance(node.expression, FunctionCall):
             name = node.expression.name.lower()
+            if name in _STATEMENT_ONLY_BUILTINS:
+                args = [self._evaluate(arg) for arg in node.expression.arguments]
+                return self._builtins[name](*args)
             if name in self._procedures:
                 return self._call_procedure(
                     node.expression.name, node.expression.arguments
                 )
+
+        if isinstance(node.expression, ArrayAccess):
+            name = node.expression.name.lower()
+            if name in _STATEMENT_ONLY_BUILTINS:
+                args = [self._evaluate(arg) for arg in node.expression.indices]
+                return self._builtins[name](*args)
 
         # Check if this is a procedure call (identifier without args)
         if isinstance(node.expression, Identifier):
@@ -1427,6 +1442,9 @@ class Interpreter:
                 return EMPTY
             return self._execute_procedure(proc, node.arguments)
 
+        if func_name in _STATEMENT_ONLY_BUILTINS:
+            raise VBScriptError('Syntax error')
+
         # Check built-in functions
         if func_name in self._builtins:
             args = [self._evaluate(arg) for arg in node.arguments]
@@ -1481,6 +1499,9 @@ class Interpreter:
                     self._execute_procedure(proc, node.indices)
                     return EMPTY
                 return self._execute_procedure(proc, node.indices)
+
+            if func_name in _STATEMENT_ONLY_BUILTINS:
+                raise VBScriptError('Syntax error')
 
             if func_name in self._builtins:
                 args = [self._evaluate(arg) for arg in node.indices]
