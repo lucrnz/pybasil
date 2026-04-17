@@ -2048,6 +2048,30 @@ class TestDynamicCodeErrorHandling:
         assert output.getvalue().strip() == 'hidden'
 
 
+    def test_executeglobal_does_not_resolve_implicit_instance_members(self):
+        output = io.StringIO()
+        run(
+            '\n'.join([
+                'Class C',
+                '    Public Property Get Foo()',
+                '        Foo = 7',
+                '    End Property',
+                '',
+                '    Public Sub Seed()',
+                '        ExecuteGlobal "fromProp = Foo"',
+                '    End Sub',
+                'End Class',
+                '',
+                'Dim obj',
+                'Set obj = New C',
+                'obj.Seed',
+                'WScript.Echo IsEmpty(fromProp)',
+            ]),
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'True'
+
+
 class TestSelectCase:
     """Test Select Case statement."""
 
