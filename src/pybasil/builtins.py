@@ -28,7 +28,6 @@ from .runtime import (
     VBScriptNothing,
     VBScriptEmpty,
     VBScriptNull,
-    EMPTY,
     VBScriptArray,
     VBScriptDictionary,
     VBScriptClassInstance,
@@ -476,14 +475,19 @@ def builtin_eval(interp: 'Interpreter', expr_string: Any) -> Any:
     from .ast_nodes import AssignmentStatement
 
     code_str = interp._to_string(expr_string)
-    if not code_str.strip():
-        return EMPTY
-
     wrapper = f"__pybasil_eval__ = {code_str}"
     program = _parse_dynamic_program(wrapper)
-    if program.statements and isinstance(program.statements[0], AssignmentStatement):
-        return interp._evaluate(program.statements[0].expression)
-    return EMPTY
+    if len(program.statements) != 1:
+        raise VBScriptError('Syntax error')
+
+    statement = program.statements[0]
+    if (
+        not isinstance(statement, AssignmentStatement)
+        or statement.variable.lower() != '__pybasil_eval__'
+    ):
+        raise VBScriptError('Syntax error')
+
+    return interp._evaluate(statement.expression)
 
 
 def builtin_execute(interp: 'Interpreter', code_string: Any) -> None:

@@ -1966,6 +1966,30 @@ class TestDynamicCodeErrorHandling:
         assert output.getvalue().strip().split('\n') == ['1002', 'Syntax error']
 
 
+    @pytest.mark.parametrize(
+        'expr',
+        [
+            '""',
+            '"1 : 2"',
+            '"2 + 3 : x = 5"',
+            '"2 + 3" & vbLf & "x = 5"',
+        ],
+    )
+    def test_eval_rejects_empty_and_multi_statement_input(self, expr):
+        output = io.StringIO()
+        run(
+            '\n'.join([
+                'On Error Resume Next',
+                'Dim result',
+                f'result = Eval({expr})',
+                'WScript.Echo Err.Number',
+                'WScript.Echo IsEmpty(result)',
+            ]),
+            output_stream=output,
+        )
+        assert output.getvalue().strip().split('\n') == ['1002', 'True']
+
+
 class TestSelectCase:
     """Test Select Case statement."""
 
