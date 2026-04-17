@@ -510,11 +510,14 @@ def builtin_executeglobal(interp: 'Interpreter', code_string: Any) -> None:
 
     program = _parse_dynamic_program(code_str)
     old_env = interp._environment
+    old_definition_scope_is_global = interp._definition_scope_is_global
     interp._environment = interp._global_environment
+    interp._definition_scope_is_global = True
     try:
         for stmt in program.statements:
             interp._execute_with_error_handling(stmt)
     finally:
+        interp._definition_scope_is_global = old_definition_scope_is_global
         interp._environment = old_env
     return None
 

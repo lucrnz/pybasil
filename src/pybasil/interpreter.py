@@ -200,6 +200,9 @@ class Interpreter:
         self._output_stream = output_stream
         self._procedures: Dict[str, Procedure] = {}  # User-defined procedures
         self._class_defs: Dict[str, VBScriptClassDef] = {}  # User-defined classes
+        self._local_procedure_scopes: List[Dict[str, Procedure]] = []
+        self._local_class_scopes: List[Dict[str, VBScriptClassDef]] = []
+        self._definition_scope_is_global = False
         self._current_instance: VBScriptClassInstance | None = None  # Me reference
         self._error_mode: ErrorHandlingMode = ErrorHandlingMode.DEFAULT
         self._err: ErrObject = ErrObject()
@@ -279,6 +282,35 @@ class Interpreter:
         elif 'Syntax error' in msg:
             return 1002  # Syntax error
         return 1000  # Generic runtime error
+
+    def _register_procedure(self, proc: Procedure) -> None:
+        if self._definition_scope_is_global or not self._local_procedure_scopes:
+            self._procedures[proc.name] = proc
+            return
+        self._local_procedure_scopes[-1][proc.name] = proc
+
+    def _register_class_def(self, class_def: VBScriptClassDef) -> None:
+        name = class_def.name.lower()
+        if self._definition_scope_is_global or not self._local_class_scopes:
+            self._class_defs[name] = class_def
+            return
+        self._local_class_scopes[-1][name] = class_def
+
+    def _lookup_procedure(self, name: str) -> Procedure | None:
+        if not self._definition_scope_is_global:
+            for scope in reversed(self._local_procedure_scopes):
+                proc = scope.get(name)
+                if proc is not None:
+                    return proc
+        return self._procedures.get(name)
+
+    def _lookup_class_def(self, name: str) -> VBScriptClassDef | None:
+        if not self._definition_scope_is_global:
+            for scope in reversed(self._local_class_scopes):
+                class_def = scope.get(name)
+                if class_def is not None:
+                    return class_def
+        return self._class_defs.get(name)
 
     # Explicit dispatch tables: {ASTNode subclass -> method name}.
     # Resolved to bound methods once in __init__ via _resolve_dispatch_tables.
@@ -535,7 +567,7 @@ class Interpreter:
             body=node.body,
             is_function=False,
         )
-        self._procedures[node.name.lower()] = proc
+        self._register_procedure(proc)
 
     def _execute_FunctionStatement(self, node: FunctionStatement) -> None:
         """Register a Function procedure."""
@@ -545,15 +577,15 @@ class Interpreter:
             body=node.body,
             is_function=True,
         )
-        self._procedures[node.name.lower()] = proc
+        self._register_procedure(proc)
 
     def _call_procedure(self, name: str, arguments: List[ASTNode]) -> Any:
         """Call a user-defined procedure or built-in function."""
         proc_name = name.lower()
 
         # Check for user-defined procedure
-        if proc_name in self._procedures:
-            proc = self._procedures[proc_name]
+        proc = self._lookup_procedure(proc_name)
+        if proc is not None:
             return self._execute_procedure(proc, arguments)
 
         if proc_name in _STATEMENT_ONLY_BUILTINS:
@@ -573,6 +605,8 @@ class Interpreter:
         old_error_mode = self._error_mode
         proc_env = Environment(parent=old_env)
         self._environment = proc_env
+        self._local_procedure_scopes.append({})
+        self._local_class_scopes.append({})
         # Reset error mode to default at procedure entry
         self._error_mode = ErrorHandlingMode.DEFAULT
         self._err.Clear()
@@ -635,6 +669,8 @@ class Interpreter:
                 orig_env.set(orig_var, proc_env.get(param_name))
 
             # Restore the original environment and error mode
+            self._local_procedure_scopes.pop()
+            self._local_class_scopes.pop()
             self._environment = old_env
             self._error_mode = old_error_mode
 
@@ -662,7 +698,7 @@ class Interpreter:
             if name in _STATEMENT_ONLY_BUILTINS:
                 args = [self._evaluate(arg) for arg in node.expression.arguments]
                 return self._builtins[name](*args)
-            if name in self._procedures:
+            if self._lookup_procedure(name) is not None:
                 return self._call_procedure(
                     node.expression.name, node.expression.arguments
                 )
@@ -676,7 +712,7 @@ class Interpreter:
         # Check if this is a procedure call (identifier without args)
         if isinstance(node.expression, Identifier):
             name = node.expression.name.lower()
-            if name in self._procedures:
+            if self._lookup_procedure(name) is not None:
                 return self._call_procedure(node.expression.name, [])
 
         # Check for Err.Clear() or Err.Raise() as MemberAccess (with parentheses)
@@ -1124,7 +1160,7 @@ class Interpreter:
                     is_function=False,
                 )
 
-        self._class_defs[node.name.lower()] = class_def
+        self._register_class_def(class_def)
 
     def _instantiate_class(self, class_def: VBScriptClassDef) -> VBScriptClassInstance:
         """Create a new instance of a user-defined class."""
@@ -1160,6 +1196,8 @@ class Interpreter:
         proc_env = Environment(parent=instance._env)
         self._environment = proc_env
         self._current_instance = instance
+        self._local_procedure_scopes.append({})
+        self._local_class_scopes.append({})
         self._error_mode = ErrorHandlingMode.DEFAULT
         self._err.Clear()
 
@@ -1203,6 +1241,8 @@ class Interpreter:
             if not args_evaluated:
                 for param_name, (orig_env, orig_var) in byref_bindings.items():
                     orig_env.set(orig_var, proc_env.get(param_name))
+            self._local_procedure_scopes.pop()
+            self._local_class_scopes.pop()
             self._environment = old_env
             self._current_instance = old_instance
             self._error_mode = old_error_mode
@@ -1299,10 +1339,9 @@ class Interpreter:
         name_lower = node._lower
 
         # Check if this is a function call (function name without parentheses)
-        if name_lower in self._procedures:
-            proc = self._procedures[name_lower]
-            if proc.is_function:
-                return self._execute_procedure(proc, [])
+        proc = self._lookup_procedure(name_lower)
+        if proc is not None and proc.is_function:
+            return self._execute_procedure(proc, [])
 
         # Inline fast path -- see docstring above for rationale.
         env = self._environment
@@ -1435,8 +1474,8 @@ class Interpreter:
         func_name = node.name.lower()
 
         # Check for user-defined procedures first
-        if func_name in self._procedures:
-            proc = self._procedures[func_name]
+        proc = self._lookup_procedure(func_name)
+        if proc is not None:
             if not proc.is_function:
                 self._execute_procedure(proc, node.arguments)
                 return EMPTY
@@ -1493,8 +1532,8 @@ class Interpreter:
             # This might be a function call - check builtins and procedures
             func_name = node.name.lower()
 
-            if func_name in self._procedures:
-                proc = self._procedures[func_name]
+            proc = self._lookup_procedure(func_name)
+            if proc is not None:
                 if not proc.is_function:
                     self._execute_procedure(proc, node.indices)
                     return EMPTY
@@ -1600,7 +1639,7 @@ class Interpreter:
     def _evaluate_NewExpression(self, node: NewExpression) -> Any:
         """Evaluate a New expression."""
         class_name_lower = node.class_name.lower() if isinstance(node.class_name, str) else node.class_name.name.lower()
-        class_def = self._class_defs.get(class_name_lower)
+        class_def = self._lookup_class_def(class_name_lower)
         if class_def is None:
             raise VBScriptError(f'Class not defined: {node.class_name}')
         return self._instantiate_class(class_def)

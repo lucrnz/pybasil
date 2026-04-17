@@ -2004,6 +2004,50 @@ class TestDynamicCodeErrorHandling:
         assert output.getvalue().strip() == '1'
 
 
+    def test_execute_defined_sub_does_not_escape_procedure_scope(self):
+        interpreter = Interpreter()
+        program = parse(
+            '\n'.join([
+                'Sub DefineLocalProc',
+                '    Execute "Sub HiddenProc() : WScript.Echo ""hidden"" : End Sub"',
+                'End Sub',
+                'Call DefineLocalProc',
+                'Call HiddenProc()',
+            ])
+        )
+        with pytest.raises(VBScriptError, match='Unknown procedure: HiddenProc'):
+            interpreter.interpret(program)
+
+    def test_execute_defined_class_does_not_escape_procedure_scope(self):
+        interpreter = Interpreter()
+        program = parse(
+            '\n'.join([
+                'Sub DefineLocalClass',
+                '    Execute "Class HiddenClass : Public X : End Class"',
+                'End Sub',
+                'Call DefineLocalClass',
+                'Dim obj',
+                'Set obj = New HiddenClass',
+            ])
+        )
+        with pytest.raises(VBScriptError, match='Class not defined: HiddenClass'):
+            interpreter.interpret(program)
+
+    def test_execute_defined_procedure_stays_visible_within_same_procedure(self):
+        output = io.StringIO()
+        run(
+            '\n'.join([
+                'Sub DefineAndCall',
+                '    Execute "Sub HiddenProc() : WScript.Echo ""hidden"" : End Sub"',
+                '    Call HiddenProc()',
+                'End Sub',
+                'Call DefineAndCall',
+            ]),
+            output_stream=output,
+        )
+        assert output.getvalue().strip() == 'hidden'
+
+
 class TestSelectCase:
     """Test Select Case statement."""
 
