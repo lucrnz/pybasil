@@ -273,6 +273,8 @@ class Interpreter:
             return 438  # Object doesn't support this property or method
         elif 'Subscript out of range' in msg:
             return 9  # Subscript out of range
+        elif 'Syntax error' in msg:
+            return 1002  # Syntax error
         return 1000  # Generic runtime error
 
     # Explicit dispatch tables: {ASTNode subclass -> method name}.

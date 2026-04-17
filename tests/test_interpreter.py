@@ -1943,6 +1943,29 @@ class TestErrorHandling:
         assert lines[1] == '11'
 
 
+class TestDynamicCodeErrorHandling:
+    @pytest.mark.parametrize(
+        ('setup', 'statement'),
+        [
+            ('', 'Execute "If Then"'),
+            ('', 'ExecuteGlobal "If Then"'),
+            ('Dim result', 'result = Eval("1 +")'),
+        ],
+    )
+    def test_dynamic_syntax_errors_obey_resume_next(self, setup, statement):
+        output = io.StringIO()
+        lines = ['On Error Resume Next']
+        if setup:
+            lines.append(setup)
+        lines.extend([
+            statement,
+            'WScript.Echo Err.Number',
+            'WScript.Echo Err.Description',
+        ])
+        run('\n'.join(lines), output_stream=output)
+        assert output.getvalue().strip().split('\n') == ['1002', 'Syntax error']
+
+
 class TestSelectCase:
     """Test Select Case statement."""
 
