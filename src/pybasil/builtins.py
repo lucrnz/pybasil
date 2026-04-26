@@ -31,6 +31,7 @@ from .runtime import (
     VBScriptDate,
     VBScriptArray,
     VBScriptDictionary,
+    VBScriptFileSystemObject,
     VBScriptClassInstance,
     WScriptObject,
 )
@@ -904,6 +905,8 @@ def builtin_createobject(
     class_lower = class_name.lower()
     if class_lower == 'scripting.dictionary':
         return VBScriptDictionary()
+    if class_lower == 'scripting.filesystemobject':
+        return VBScriptFileSystemObject()
     return {'_class': class_name}
 
 

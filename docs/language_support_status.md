@@ -68,6 +68,13 @@
   - `Class_Initialize` lifecycle method
 - **Objects**:
   - `Scripting.Dictionary` via `CreateObject` (`Add`, `Exists`, `Items`, `Keys`, `Remove`, `RemoveAll`, `Item`, `Key`, `Count`, `CompareMode`)
+  - `Scripting.FileSystemObject` via `CreateObject`:
+    - File operations: `FileExists`, `FolderExists`, `DriveExists`, `CreateTextFile`, `OpenTextFile`, `DeleteFile`, `DeleteFolder`, `CopyFile`, `CopyFolder`, `MoveFile`, `MoveFolder`, `CreateFolder`, `GetFile`, `GetFolder`, `GetDrive`, `GetSpecialFolder`, `Drives`
+    - Path helpers: `BuildPath`, `GetFileName`, `GetBaseName`, `GetExtensionName`, `GetParentFolderName`, `GetAbsolutePathName`, `GetTempName`
+    - `TextStream` object: `Read`, `ReadLine`, `ReadAll`, `Write`, `WriteLine`, `WriteBlankLines`, `Close`, `AtEndOfStream`, `AtEndOfLine`, `Line`, `Column`
+    - `File` object: `Name`, `Path`, `Size`, `Type`, `DateCreated`, `DateLastModified`, `DateLastAccessed`, `Attributes`, `ParentFolder`, `Delete`, `Copy`, `Move`, `OpenAsTextStream`
+    - `Folder` object: `Name`, `Path`, `Size`, `Type`, `DateCreated`, `DateLastModified`, `SubFolders`, `Files`, `IsRootFolder`, `ParentFolder`, `Delete`, `Copy`, `Move`
+    - `Drive` object: `DriveLetter`, `Path`, `DriveType`, `IsReady`, `FileSystem`, `TotalSize`, `AvailableSpace`, `FreeSpace`, `RootFolder`
 - **Built-in constants**:
   - String: `vbCr`, `vbLf`, `vbCrLf`, `vbNewLine`, `vbTab`, `vbNullChar`, `vbNullString`, `vbBack`, `vbFormFeed`, `vbVerticalTab`
   - VarType: `vbEmpty`, `vbNull`, `vbInteger`, `vbLong`, `vbSingle`, `vbDouble`, `vbCurrency`, `vbDate`, `vbString`, `vbObject`, `vbError`, `vbBoolean`, `vbVariant`, `vbDataObject`, `vbDecimal`, `vbByte`, `vbArray`

@@ -1,7 +1,10 @@
 """VBScript runtime value types, environment, and control-flow exceptions."""
 
 from __future__ import annotations
+import os
 import sys
+import shutil
+import tempfile
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
@@ -577,6 +580,644 @@ class VBScriptDictionary:
         """Iterate over keys (for For Each)."""
         for key in self._key_order:
             yield self._original_keys.get(key, key)
+
+
+# ---------------------------------------------------------------------------
+#  Scripting.FileSystemObject
+# ---------------------------------------------------------------------------
+
+# I/O mode constants
+_FOR_READING = 1
+_FOR_WRITING = 2
+_FOR_APPENDING = 8
+
+# Tristate constants
+_TRISTATE_TRUE = -1      # Unicode
+_TRISTATE_FALSE = 0      # ASCII
+_TRISTATE_USE_DEFAULT = -2
+
+# SpecialFolder constants
+_WINDOWS_FOLDER = 0
+_SYSTEM_FOLDER = 1
+_TEMP_FOLDER = 2
+
+# File attribute constants
+_ATTR_NORMAL = 0
+_ATTR_READONLY = 1
+_ATTR_HIDDEN = 2
+_ATTR_SYSTEM = 4
+_ATTR_DIRECTORY = 16
+_ATTR_ARCHIVE = 32
+
+
+class VBScriptTextStream(VBScriptObject):
+    """TextStream object for reading/writing text files."""
+
+    def __init__(self, file_handle, mode: int):
+        self._handle = file_handle
+        self._mode = mode
+        self._line = 1
+        self._column = 1
+        self._closed = False
+
+    def _check_open(self) -> None:
+        if self._closed:
+            raise VBScriptError('Bad file mode')
+
+    # -- Reading -------------------------------------------------------------
+
+    def Read(self, characters: int) -> str:
+        self._check_open()
+        if self._mode != _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        data = self._handle.read(int(characters))
+        self._update_position(data)
+        return data
+
+    def ReadLine(self) -> str:
+        self._check_open()
+        if self._mode != _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        line = self._handle.readline()
+        if line.endswith('\n'):
+            line = line[:-1]
+            if line.endswith('\r'):
+                line = line[:-1]
+        self._line += 1
+        self._column = 1
+        return line
+
+    def ReadAll(self) -> str:
+        self._check_open()
+        if self._mode != _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        data = self._handle.read()
+        self._update_position(data)
+        return data
+
+    # -- Writing -------------------------------------------------------------
+
+    def Write(self, text: str) -> None:
+        self._check_open()
+        if self._mode == _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        s = str(text) if not isinstance(text, str) else text
+        self._handle.write(s)
+        self._update_position(s)
+
+    def WriteLine(self, text: str = '') -> None:
+        self._check_open()
+        if self._mode == _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        s = str(text) if not isinstance(text, str) else text
+        self._handle.write(s + '\n')
+        self._line += 1
+        self._column = 1
+
+    def WriteBlankLines(self, lines: int) -> None:
+        self._check_open()
+        if self._mode == _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        for _ in range(int(lines)):
+            self._handle.write('\n')
+        self._line += int(lines)
+        self._column = 1
+
+    def Close(self) -> None:
+        if not self._closed:
+            self._handle.close()
+            self._closed = True
+
+    # -- Properties ----------------------------------------------------------
+
+    @property
+    def AtEndOfStream(self) -> bool:
+        self._check_open()
+        if self._mode != _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        pos = self._handle.tell()
+        ch = self._handle.read(1)
+        if ch == '':
+            return True
+        self._handle.seek(pos)
+        return False
+
+    @property
+    def AtEndOfLine(self) -> bool:
+        self._check_open()
+        if self._mode != _FOR_READING:
+            raise VBScriptError('Bad file mode')
+        pos = self._handle.tell()
+        ch = self._handle.read(1)
+        if ch == '':
+            return True
+        self._handle.seek(pos)
+        return ch in ('\n', '\r')
+
+    @property
+    def Line(self) -> int:
+        return self._line
+
+    @property
+    def Column(self) -> int:
+        return self._column
+
+    def _update_position(self, text: str) -> None:
+        for ch in text:
+            if ch == '\n':
+                self._line += 1
+                self._column = 1
+            else:
+                self._column += 1
+
+
+class VBScriptFile(VBScriptObject):
+    """File object representing a file on disk."""
+
+    def __init__(self, path: str):
+        self._path = os.path.abspath(path)
+
+    @property
+    def Name(self) -> str:
+        return os.path.basename(self._path)
+
+    @Name.setter
+    def Name(self, value: str) -> None:
+        new_path = os.path.join(os.path.dirname(self._path), value)
+        os.rename(self._path, new_path)
+        self._path = new_path
+
+    @property
+    def Path(self) -> str:
+        return self._path
+
+    @property
+    def ShortPath(self) -> str:
+        return self._path
+
+    @property
+    def ShortName(self) -> str:
+        return self.Name
+
+    @property
+    def Size(self) -> int:
+        return os.path.getsize(self._path)
+
+    @property
+    def Type(self) -> str:
+        _, ext = os.path.splitext(self._path)
+        return ext if ext else 'File'
+
+    @property
+    def DateCreated(self) -> 'VBScriptDate':
+        ts = os.path.getctime(self._path)
+        return VBScriptDate.from_datetime(datetime.fromtimestamp(ts))
+
+    @property
+    def DateLastModified(self) -> 'VBScriptDate':
+        ts = os.path.getmtime(self._path)
+        return VBScriptDate.from_datetime(datetime.fromtimestamp(ts))
+
+    @property
+    def DateLastAccessed(self) -> 'VBScriptDate':
+        ts = os.path.getatime(self._path)
+        return VBScriptDate.from_datetime(datetime.fromtimestamp(ts))
+
+    @property
+    def Attributes(self) -> int:
+        attrs = _ATTR_NORMAL
+        if not os.access(self._path, os.W_OK):
+            attrs |= _ATTR_READONLY
+        return attrs
+
+    @property
+    def ParentFolder(self) -> 'VBScriptFolder':
+        return VBScriptFolder(os.path.dirname(self._path))
+
+    def Delete(self, force: bool = False) -> None:
+        os.remove(self._path)
+
+    def Copy(self, destination: str, overwrite: bool = True) -> None:
+        dest = str(destination)
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, self.Name)
+        if not overwrite and os.path.exists(dest):
+            raise VBScriptError('File already exists')
+        shutil.copy2(self._path, dest)
+
+    def Move(self, destination: str) -> None:
+        dest = str(destination)
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, self.Name)
+        shutil.move(self._path, dest)
+        self._path = os.path.abspath(dest)
+
+    def OpenAsTextStream(self, iomode: int = _FOR_READING, _format: int = _TRISTATE_FALSE) -> VBScriptTextStream:
+        if iomode == _FOR_READING:
+            fh = open(self._path, 'r', encoding='utf-8')
+        elif iomode == _FOR_WRITING:
+            fh = open(self._path, 'w', encoding='utf-8')
+        elif iomode == _FOR_APPENDING:
+            fh = open(self._path, 'a', encoding='utf-8')
+        else:
+            raise VBScriptError('Bad file mode')
+        return VBScriptTextStream(fh, iomode)
+
+
+class VBScriptFolder(VBScriptObject):
+    """Folder object representing a directory on disk."""
+
+    def __init__(self, path: str):
+        self._path = os.path.abspath(path)
+
+    @property
+    def Name(self) -> str:
+        return os.path.basename(self._path) or self._path
+
+    @Name.setter
+    def Name(self, value: str) -> None:
+        new_path = os.path.join(os.path.dirname(self._path), value)
+        os.rename(self._path, new_path)
+        self._path = new_path
+
+    @property
+    def Path(self) -> str:
+        return self._path
+
+    @property
+    def ShortPath(self) -> str:
+        return self._path
+
+    @property
+    def ShortName(self) -> str:
+        return self.Name
+
+    @property
+    def Size(self) -> int:
+        total = 0
+        for dirpath, _dirnames, filenames in os.walk(self._path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                try:
+                    total += os.path.getsize(fp)
+                except OSError:
+                    pass
+        return total
+
+    @property
+    def Type(self) -> str:
+        return 'File Folder'
+
+    @property
+    def DateCreated(self) -> 'VBScriptDate':
+        ts = os.path.getctime(self._path)
+        return VBScriptDate.from_datetime(datetime.fromtimestamp(ts))
+
+    @property
+    def DateLastModified(self) -> 'VBScriptDate':
+        ts = os.path.getmtime(self._path)
+        return VBScriptDate.from_datetime(datetime.fromtimestamp(ts))
+
+    @property
+    def DateLastAccessed(self) -> 'VBScriptDate':
+        ts = os.path.getatime(self._path)
+        return VBScriptDate.from_datetime(datetime.fromtimestamp(ts))
+
+    @property
+    def Attributes(self) -> int:
+        return _ATTR_DIRECTORY
+
+    @property
+    def IsRootFolder(self) -> bool:
+        return os.path.dirname(self._path) == self._path
+
+    @property
+    def ParentFolder(self) -> 'VBScriptFolder':
+        parent = os.path.dirname(self._path)
+        if parent == self._path:
+            raise VBScriptError('Path not found')
+        return VBScriptFolder(parent)
+
+    @property
+    def SubFolders(self) -> 'VBScriptFolderCollection':
+        return VBScriptFolderCollection(self._path)
+
+    @property
+    def Files(self) -> 'VBScriptFileCollection':
+        return VBScriptFileCollection(self._path)
+
+    def Delete(self, force: bool = False) -> None:
+        shutil.rmtree(self._path)
+
+    def Copy(self, destination: str, overwrite: bool = True) -> None:
+        dest = str(destination)
+        if os.path.exists(dest) and not overwrite:
+            raise VBScriptError('File already exists')
+        shutil.copytree(self._path, dest, dirs_exist_ok=overwrite)
+
+    def Move(self, destination: str) -> None:
+        dest = str(destination)
+        shutil.move(self._path, dest)
+        self._path = os.path.abspath(dest)
+
+    def CreateTextFile(self, filename: str, overwrite: bool = True) -> VBScriptTextStream:
+        path = os.path.join(self._path, filename)
+        if not overwrite and os.path.exists(path):
+            raise VBScriptError('File already exists')
+        fh = open(path, 'w', encoding='utf-8')
+        return VBScriptTextStream(fh, _FOR_WRITING)
+
+
+class VBScriptFileCollection(VBScriptObject):
+    """Collection of File objects in a folder."""
+
+    def __init__(self, folder_path: str):
+        self._folder_path = folder_path
+
+    @property
+    def Count(self) -> int:
+        try:
+            return sum(1 for e in os.scandir(self._folder_path) if e.is_file())
+        except OSError:
+            return 0
+
+    def Item(self, name: str) -> VBScriptFile:
+        path = os.path.join(self._folder_path, name)
+        if not os.path.isfile(path):
+            raise VBScriptError('File not found')
+        return VBScriptFile(path)
+
+    def __iter__(self):
+        try:
+            for entry in os.scandir(self._folder_path):
+                if entry.is_file():
+                    yield VBScriptFile(entry.path)
+        except OSError:
+            return
+
+
+class VBScriptFolderCollection(VBScriptObject):
+    """Collection of Folder objects (subfolders)."""
+
+    def __init__(self, folder_path: str):
+        self._folder_path = folder_path
+
+    @property
+    def Count(self) -> int:
+        try:
+            return sum(1 for e in os.scandir(self._folder_path) if e.is_dir())
+        except OSError:
+            return 0
+
+    def Item(self, name: str) -> VBScriptFolder:
+        path = os.path.join(self._folder_path, name)
+        if not os.path.isdir(path):
+            raise VBScriptError('Path not found')
+        return VBScriptFolder(path)
+
+    def __iter__(self):
+        try:
+            for entry in os.scandir(self._folder_path):
+                if entry.is_dir():
+                    yield VBScriptFolder(entry.path)
+        except OSError:
+            return
+
+
+class VBScriptDrive(VBScriptObject):
+    """Drive object."""
+
+    def __init__(self, path: str):
+        self._path = path
+
+    @property
+    def DriveLetter(self) -> str:
+        if len(self._path) >= 1 and self._path[1:2] == ':':
+            return self._path[0].upper()
+        return ''
+
+    @property
+    def Path(self) -> str:
+        return self._path
+
+    @property
+    def RootFolder(self) -> VBScriptFolder:
+        return VBScriptFolder(self._path)
+
+    @property
+    def DriveType(self) -> int:
+        return 2  # Fixed
+
+    @property
+    def IsReady(self) -> bool:
+        return os.path.exists(self._path)
+
+    @property
+    def FileSystem(self) -> str:
+        return 'Unknown'
+
+    @property
+    def TotalSize(self) -> int:
+        try:
+            usage = shutil.disk_usage(self._path)
+            return usage.total
+        except OSError:
+            return 0
+
+    @property
+    def AvailableSpace(self) -> int:
+        try:
+            usage = shutil.disk_usage(self._path)
+            return usage.free
+        except OSError:
+            return 0
+
+    @property
+    def FreeSpace(self) -> int:
+        return self.AvailableSpace
+
+    @property
+    def VolumeName(self) -> str:
+        return ''
+
+    @property
+    def SerialNumber(self) -> int:
+        return 0
+
+
+class VBScriptDriveCollection(VBScriptObject):
+    """Collection of Drive objects."""
+
+    def __init__(self):
+        pass
+
+    @property
+    def Count(self) -> int:
+        return len(self._get_drives())
+
+    def Item(self, spec: str) -> VBScriptDrive:
+        s = str(spec).rstrip(':').rstrip('\\').rstrip('/')
+        if len(s) == 1:
+            s = s.upper() + ':' + os.sep
+        return VBScriptDrive(s)
+
+    def _get_drives(self) -> list:
+        if sys.platform == 'win32':
+            import string
+            return [f'{d}:\\' for d in string.ascii_uppercase if os.path.exists(f'{d}:\\')]
+        return ['/']
+
+    def __iter__(self):
+        for d in self._get_drives():
+            yield VBScriptDrive(d)
+
+
+class VBScriptFileSystemObject(VBScriptObject):
+    """Scripting.FileSystemObject implementation."""
+
+    # -- File operations -----------------------------------------------------
+
+    def FileExists(self, filespec: str) -> bool:
+        return os.path.isfile(str(filespec))
+
+    def FolderExists(self, folderspec: str) -> bool:
+        return os.path.isdir(str(folderspec))
+
+    def DriveExists(self, drivespec: str) -> bool:
+        s = str(drivespec)
+        if len(s) == 1:
+            s = s + ':' + os.sep
+        return os.path.exists(s)
+
+    def GetFile(self, filespec: str) -> VBScriptFile:
+        path = str(filespec)
+        if not os.path.isfile(path):
+            raise VBScriptError('File not found')
+        return VBScriptFile(path)
+
+    def GetFolder(self, folderspec: str) -> VBScriptFolder:
+        path = str(folderspec)
+        if not os.path.isdir(path):
+            raise VBScriptError('Path not found')
+        return VBScriptFolder(path)
+
+    def GetDrive(self, drivespec: str) -> VBScriptDrive:
+        s = str(drivespec)
+        if len(s) == 1:
+            s = s + ':' + os.sep
+        return VBScriptDrive(s)
+
+    @property
+    def Drives(self) -> VBScriptDriveCollection:
+        return VBScriptDriveCollection()
+
+    def CreateTextFile(self, filename: str, overwrite: bool = True, unicode: bool = False) -> VBScriptTextStream:
+        path = str(filename)
+        if not overwrite and os.path.exists(path):
+            raise VBScriptError('File already exists')
+        fh = open(path, 'w', encoding='utf-8')
+        return VBScriptTextStream(fh, _FOR_WRITING)
+
+    def OpenTextFile(self, filename: str, iomode: int = _FOR_READING, create: bool = False, _format: int = _TRISTATE_FALSE) -> VBScriptTextStream:
+        path = str(filename)
+        mode = int(iomode)
+        if mode == _FOR_READING:
+            if not os.path.exists(path):
+                if create:
+                    open(path, 'w', encoding='utf-8').close()
+                else:
+                    raise VBScriptError('File not found')
+            fh = open(path, 'r', encoding='utf-8')
+        elif mode == _FOR_WRITING:
+            fh = open(path, 'w', encoding='utf-8')
+        elif mode == _FOR_APPENDING:
+            fh = open(path, 'a', encoding='utf-8')
+        else:
+            raise VBScriptError('Bad file mode')
+        return VBScriptTextStream(fh, mode)
+
+    def DeleteFile(self, filespec: str, force: bool = False) -> None:
+        path = str(filespec)
+        if not os.path.isfile(path):
+            raise VBScriptError('File not found')
+        os.remove(path)
+
+    def DeleteFolder(self, folderspec: str, force: bool = False) -> None:
+        path = str(folderspec)
+        if not os.path.isdir(path):
+            raise VBScriptError('Path not found')
+        shutil.rmtree(path)
+
+    def CopyFile(self, source: str, destination: str, overwrite: bool = True) -> None:
+        src = str(source)
+        dest = str(destination)
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, os.path.basename(src))
+        if not overwrite and os.path.exists(dest):
+            raise VBScriptError('File already exists')
+        shutil.copy2(src, dest)
+
+    def CopyFolder(self, source: str, destination: str, overwrite: bool = True) -> None:
+        src = str(source)
+        dest = str(destination)
+        shutil.copytree(src, dest, dirs_exist_ok=overwrite)
+
+    def MoveFile(self, source: str, destination: str) -> None:
+        src = str(source)
+        dest = str(destination)
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, os.path.basename(src))
+        shutil.move(src, dest)
+
+    def MoveFolder(self, source: str, destination: str) -> None:
+        shutil.move(str(source), str(destination))
+
+    def CreateFolder(self, foldername: str) -> VBScriptFolder:
+        path = str(foldername)
+        if os.path.exists(path):
+            raise VBScriptError('File already exists')
+        os.makedirs(path)
+        return VBScriptFolder(path)
+
+    # -- Path helpers --------------------------------------------------------
+
+    def BuildPath(self, path: str, name: str) -> str:
+        return os.path.join(str(path), str(name))
+
+    def GetFileName(self, pathspec: str) -> str:
+        return os.path.basename(str(pathspec))
+
+    def GetBaseName(self, pathspec: str) -> str:
+        name = os.path.basename(str(pathspec))
+        root, _ = os.path.splitext(name)
+        return root
+
+    def GetExtensionName(self, pathspec: str) -> str:
+        _, ext = os.path.splitext(str(pathspec))
+        return ext.lstrip('.')
+
+    def GetParentFolderName(self, pathspec: str) -> str:
+        return os.path.dirname(str(pathspec))
+
+    def GetAbsolutePathName(self, pathspec: str) -> str:
+        return os.path.abspath(str(pathspec))
+
+    def GetTempName(self) -> str:
+        return os.path.basename(tempfile.mktemp())
+
+    def GetSpecialFolder(self, folderspec: int) -> VBScriptFolder:
+        spec = int(folderspec)
+        if spec == _TEMP_FOLDER:
+            return VBScriptFolder(tempfile.gettempdir())
+        elif spec == _WINDOWS_FOLDER:
+            if sys.platform == 'win32':
+                return VBScriptFolder(os.environ.get('WINDIR', 'C:\\Windows'))
+            return VBScriptFolder('/tmp')
+        elif spec == _SYSTEM_FOLDER:
+            if sys.platform == 'win32':
+                return VBScriptFolder(os.environ.get('SYSTEMROOT', 'C:\\Windows') + '\\System32')
+            return VBScriptFolder('/usr')
+        raise VBScriptError('Invalid procedure call or argument')
 
 
 # ---------------------------------------------------------------------------

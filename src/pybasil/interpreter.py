@@ -77,6 +77,7 @@ from .ast_nodes import (
 )
 from .runtime import (
     VBScriptError,
+    VBScriptObject,
     VBScriptNothing,
     VBScriptEmpty,
     VBScriptNull,
@@ -982,6 +983,8 @@ class Interpreter:
         elif isinstance(collection, str):
             # Strings are iterable character by character in VBScript
             iterable = list(collection)
+        elif hasattr(collection, '__iter__'):
+            iterable = list(collection)
         else:
             raise VBScriptError("Object doesn't support this property or method")
 
@@ -1560,6 +1563,29 @@ class Interpreter:
         # Handle dictionary-like objects
         if isinstance(obj, dict):
             return obj.get(node.member.lower(), EMPTY)
+
+        # Handle VBScriptObject subclasses with case-insensitive lookup.
+        # Properties (via @property) are resolved by getattr directly.
+        # Bound methods are auto-called with zero args to match VBScript
+        # semantics where obj.Method is equivalent to obj.Method().
+        if isinstance(obj, VBScriptObject):
+            member_lower = node.member.lower()
+            for attr_name in dir(obj):
+                if attr_name.lower() == member_lower:
+                    # Check if this is a data descriptor (property) on the class
+                    cls_attr = getattr(type(obj), attr_name, None)
+                    if isinstance(cls_attr, property):
+                        return getattr(obj, attr_name)
+                    val = getattr(obj, attr_name)
+                    if callable(val):
+                        try:
+                            return val()
+                        except TypeError:
+                            return val
+                    return val
+            raise VBScriptError(
+                f"Object doesn't support this property or method: {node.member}"
+            )
 
         # Handle objects with attributes
         if hasattr(obj, node.member):
