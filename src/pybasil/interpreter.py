@@ -36,6 +36,7 @@ from .ast_nodes import (
     ArrayAccess,
     DotAccess,
     MeExpression,
+    OptionExplicitStatement,
     ConstStatement,
     DimStatement,
     AssignmentStatement,
@@ -206,6 +207,8 @@ class Interpreter:
         self._class_defs: Dict[str, VBScriptClassDef] = {}  # User-defined classes
         self._local_procedure_scopes: List[Dict[str, Procedure]] = []
         self._local_class_scopes: List[Dict[str, VBScriptClassDef]] = []
+        self._option_explicit: bool = False
+        self._declared_vars: set[str] = set()  # lowercase names of Dim/Const declared vars
         self._constants: set[str] = set()  # lowercase names of Const variables
         self._definition_scope_is_global = False
         self._current_instance: VBScriptClassInstance | None = None  # Me reference
@@ -321,6 +324,7 @@ class Interpreter:
     # Explicit dispatch tables: {ASTNode subclass -> method name}.
     # Resolved to bound methods once in __init__ via _resolve_dispatch_tables.
     _EXECUTE_DISPATCH = {
+        OptionExplicitStatement: '_execute_OptionExplicitStatement',
         ConstStatement: '_execute_ConstStatement',
         DimStatement: '_execute_DimStatement',
         AssignmentStatement: '_execute_AssignmentStatement',
@@ -392,17 +396,23 @@ class Interpreter:
     #  Execute handlers
     # ------------------------------------------------------------------
 
+    def _execute_OptionExplicitStatement(self, node: OptionExplicitStatement) -> None:
+        """Execute Option Explicit - require variable declarations."""
+        self._option_explicit = True
+
     def _execute_ConstStatement(self, node: ConstStatement) -> None:
         """Execute a Const statement."""
         for name, expr in node.constants:
             value = self._evaluate(expr)
             key = name.lower()
             self._constants.add(key)
+            self._declared_vars.add(key)
             self._environment.define(name, value)
 
     def _execute_DimStatement(self, node: DimStatement) -> None:
         """Execute a Dim statement."""
         for dim_var in node.variables:
+            self._declared_vars.add(dim_var.name.lower())
             if dim_var.dimensions is not None:
                 # Array declaration
                 if len(dim_var.dimensions) == 0:
@@ -419,8 +429,12 @@ class Interpreter:
 
     def _execute_AssignmentStatement(self, node: AssignmentStatement) -> None:
         """Execute an assignment statement."""
-        if node.variable.lower() in self._constants:
+        key = node.variable.lower()
+        if key in self._constants:
             raise VBScriptError('Illegal assignment: variable is a constant')
+        if self._option_explicit and key not in self._declared_vars:
+            if not self._environment.exists(node.variable):
+                raise VBScriptError(f'Variable is undefined: {node.variable}')
         value = self._evaluate(node.expression)
 
         if node.indices:
@@ -445,6 +459,10 @@ class Interpreter:
 
     def _execute_SetStatement(self, node: SetStatement) -> None:
         """Execute a Set statement."""
+        key = node.variable.lower()
+        if self._option_explicit and key not in self._declared_vars:
+            if not self._environment.exists(node.variable):
+                raise VBScriptError(f'Variable is undefined: {node.variable}')
         value = self._evaluate(node.expression)
 
         if node.indices:

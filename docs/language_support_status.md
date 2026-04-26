@@ -1,6 +1,7 @@
 # Language Support Status
 
 - **Tree-walking interpreter** targeting full VBScript 6.0 compatibility
+- **Option Explicit**: enforces `Dim`/`Const` declarations before use
 - **Variables & literals**:
   - Variables are case-insensitive
   - Implicit variable creation is supported (`Empty` default)

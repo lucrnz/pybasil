@@ -5,7 +5,8 @@
 start: (_NL | statement)*
 
 // Statements can be separated by newlines or colons
-statement: const_statement
+statement: option_explicit_statement
+         | const_statement
          | dim_statement
          | assignment_statement
          | set_statement
@@ -30,6 +31,9 @@ statement: const_statement
 
 // Statement separator - colon is converted to _NL by the postlexer
 // (not %ignore'd, so compound statements like Class...End Class work with colons)
+
+// Option Explicit statement
+option_explicit_statement: OPTION_KW EXPLICIT_KW
 
 // Const statement: Const name = value [, name2 = value2]*
 const_statement: CONST_KW const_assignment ("," const_assignment)*
@@ -277,6 +281,8 @@ identifier: NAME
 
 // Terminals - Keywords have higher priority than NAME
 // Use word boundary matching to prevent matching keywords as part of identifiers
+OPTION_KW.2: /option(?![_a-zA-Z0-9])/i
+EXPLICIT_KW.2: /explicit(?![_a-zA-Z0-9])/i
 CONST_KW.2: /const(?![_a-zA-Z0-9])/i
 DIM_KW.2: /dim(?![_a-zA-Z0-9])/i
 LET_KW.2: /let(?![_a-zA-Z0-9])/i

@@ -27,6 +27,7 @@ from .ast_nodes import (
     NewExpression,
     ArrayAccess,
     DotAccess,
+    OptionExplicitStatement,
     ConstStatement,
     DimVariable,
     DimStatement,
@@ -98,6 +99,10 @@ class VBScriptTransformer(Transformer):
         if not items:
             return None
         return items[0]
+
+    def option_explicit_statement(self, items: List) -> OptionExplicitStatement:
+        """Transform Option Explicit statement."""
+        return OptionExplicitStatement()
 
     def const_statement(self, items: List) -> ConstStatement:
         """Transform Const statement."""
@@ -673,6 +678,7 @@ class VBScriptTransformer(Transformer):
             WithStatement,
             DotAssignmentStatement,
             ConstStatement,
+            OptionExplicitStatement,
         )
 
         for item in items:

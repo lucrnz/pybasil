@@ -416,6 +416,13 @@ class ExitStatement(ASTNode):
 
 
 @dataclass
+class OptionExplicitStatement(ASTNode):
+    """Option Explicit - require variable declarations."""
+
+    pass
+
+
+@dataclass
 class ConstStatement(ASTNode):
     """Const name = value [, name2 = value2]*"""
 
@@ -495,6 +502,7 @@ Statement = Union[
     SubStatement,
     FunctionStatement,
     ClassStatement,
+    OptionExplicitStatement,
     ConstStatement,
     WithStatement,
     OnErrorResumeNextStatement,
