@@ -52,7 +52,7 @@
   - String helpers (`Len`, `Left`, `Right`, `Mid`, `Trim`, `LTrim`, `RTrim`, `UCase`, `LCase`, `InStr`, `InStrRev`, `Replace`, `Split`, `Join`, `StrComp`, `StrReverse`, `String`, `Space`, `Asc`, `AscW`, `Chr`, `ChrW`)
   - Number-to-string helpers (`Hex`, `Oct`)
   - Conversion/type helpers (`CStr`, `CInt`, `CLng`, `CDbl`, `CBool`, `CDate`, `IsNumeric`, `IsArray`, `IsDate`, `IsEmpty`, `IsNull`, `IsObject`, `TypeName`, `VarType`)
-  - Math/random helpers (`Abs`, `Sqr`, `Int`, `Fix`, `Round`, `Rnd`, `Randomize`)
+  - Math/random helpers (`Abs`, `Sqr`, `Int`, `Fix`, `Round`, `Rnd`, `Randomize`, `Sgn`, `Log`, `Exp`, `Sin`, `Cos`, `Tan`, `Atn`)
   - `MsgBox`, `InputBox`, `CreateObject`, `GetObject` (simplified behavior)
 - **Classes**:
   - `Class ... End Class` definitions

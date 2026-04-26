@@ -519,6 +519,49 @@ def builtin_randomize(interp: Interpreter, seed: Any = None) -> None:
         random.seed()
 
 
+def builtin_sgn(interp: Interpreter, value: Any) -> int:
+    """Sgn function - returns the sign of a number."""
+    n = interp._to_number(value)
+    if n > 0:
+        return 1
+    elif n < 0:
+        return -1
+    return 0
+
+
+def builtin_log(interp: Interpreter, value: Any) -> float:
+    """Log function - natural logarithm."""
+    n = interp._to_number(value)
+    if n <= 0:
+        raise VBScriptError('Invalid procedure call or argument')
+    return math.log(n)
+
+
+def builtin_exp(interp: Interpreter, value: Any) -> float:
+    """Exp function - e raised to a power."""
+    return math.exp(interp._to_number(value))
+
+
+def builtin_cos(interp: Interpreter, value: Any) -> float:
+    """Cos function - cosine."""
+    return math.cos(interp._to_number(value))
+
+
+def builtin_sin(interp: Interpreter, value: Any) -> float:
+    """Sin function - sine."""
+    return math.sin(interp._to_number(value))
+
+
+def builtin_tan(interp: Interpreter, value: Any) -> float:
+    """Tan function - tangent."""
+    return math.tan(interp._to_number(value))
+
+
+def builtin_atn(interp: Interpreter, value: Any) -> float:
+    """Atn function - arctangent."""
+    return math.atan(interp._to_number(value))
+
+
 # ---------------------------------------------------------------------------
 #  Object functions
 # ---------------------------------------------------------------------------
@@ -707,6 +750,13 @@ def get_builtin_table(interp: Interpreter) -> dict:
         'round': _bind(builtin_round),
         'rnd': _bind(builtin_rnd),
         'randomize': _bind(builtin_randomize),
+        'sgn': _bind(builtin_sgn),
+        'log': _bind(builtin_log),
+        'exp': _bind(builtin_exp),
+        'cos': _bind(builtin_cos),
+        'sin': _bind(builtin_sin),
+        'tan': _bind(builtin_tan),
+        'atn': _bind(builtin_atn),
         'createobject': _bind(builtin_createobject),
         'getobject': _bind(builtin_getobject),
         'ubound': _bind(builtin_ubound),
