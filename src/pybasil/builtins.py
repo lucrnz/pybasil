@@ -219,6 +219,127 @@ def builtin_join(interp: Interpreter, array: list, delimiter: str = ' ') -> str:
     return d.join(interp._to_string(item) for item in array)
 
 
+def builtin_instrrev(interp: Interpreter, *args: Any) -> int:
+    """InStrRev function - search from the right."""
+    if len(args) == 2:
+        string1, string2 = args
+        start = -1
+        compare = 0
+    elif len(args) == 3:
+        string1, string2 = args[0], args[1]
+        start = int(args[2])
+        compare = 0
+    elif len(args) >= 4:
+        string1, string2 = args[0], args[1]
+        start = int(args[2])
+        compare = int(args[3])
+    else:
+        return 0
+
+    s1 = string1 if isinstance(string1, str) else interp._to_string(string1)
+    s2 = string2 if isinstance(string2, str) else interp._to_string(string2)
+
+    if start == -1:
+        start = len(s1)
+    if start < 1:
+        raise VBScriptError('Invalid procedure call or argument')
+
+    search_in = s1[:start]
+    if compare == 1:
+        idx = search_in.lower().rfind(s2.lower())
+    else:
+        idx = search_in.rfind(s2)
+    return idx + 1 if idx >= 0 else 0
+
+
+def builtin_strcomp(interp: Interpreter, string1: Any, string2: Any, compare: int = 0) -> int:
+    """StrComp function - compare two strings."""
+    s1 = interp._to_string(string1)
+    s2 = interp._to_string(string2)
+    compare_val = int(compare)
+    if compare_val == 1:
+        s1 = s1.lower()
+        s2 = s2.lower()
+    if s1 < s2:
+        return -1
+    elif s1 > s2:
+        return 1
+    return 0
+
+
+def builtin_string(interp: Interpreter, number: Any, character: Any) -> str:
+    """String function - repeat a character n times."""
+    n = int(interp._to_number(number))
+    if n < 0:
+        raise VBScriptError('Invalid procedure call or argument')
+    if isinstance(character, (int, float)) and not isinstance(character, bool):
+        ch = chr(int(character))
+    else:
+        s = interp._to_string(character)
+        ch = s[0] if s else ''
+    return ch * n
+
+
+def builtin_space(interp: Interpreter, number: Any) -> str:
+    """Space function - return n spaces."""
+    n = int(interp._to_number(number))
+    if n < 0:
+        raise VBScriptError('Invalid procedure call or argument')
+    return ' ' * n
+
+
+def builtin_strreverse(interp: Interpreter, string: Any) -> str:
+    """StrReverse function - reverse a string."""
+    return interp._to_string(string)[::-1]
+
+
+def builtin_asc(interp: Interpreter, string: Any) -> int:
+    """Asc function - return ASCII code of first character."""
+    s = interp._to_string(string)
+    if not s:
+        raise VBScriptError('Invalid procedure call or argument')
+    return ord(s[0])
+
+
+def builtin_ascw(interp: Interpreter, string: Any) -> int:
+    """AscW function - return Unicode code of first character."""
+    s = interp._to_string(string)
+    if not s:
+        raise VBScriptError('Invalid procedure call or argument')
+    return ord(s[0])
+
+
+def builtin_chr(interp: Interpreter, charcode: Any) -> str:
+    """Chr function - return character from ASCII code."""
+    code = int(interp._to_number(charcode))
+    if code < 0 or code > 255:
+        raise VBScriptError('Invalid procedure call or argument')
+    return chr(code)
+
+
+def builtin_chrw(interp: Interpreter, charcode: Any) -> str:
+    """ChrW function - return character from Unicode code."""
+    code = int(interp._to_number(charcode))
+    return chr(code)
+
+
+def builtin_hex(interp: Interpreter, number: Any) -> str:
+    """Hex function - convert number to hex string."""
+    n = int(interp._to_number(number))
+    if n < 0:
+        # VBScript returns unsigned hex for negative numbers (32-bit)
+        n = n & 0xFFFFFFFF
+    return format(n, 'X')
+
+
+def builtin_oct(interp: Interpreter, number: Any) -> str:
+    """Oct function - convert number to octal string."""
+    n = int(interp._to_number(number))
+    if n < 0:
+        n = n & 0xFFFFFFFF
+    return format(n, 'o')
+
+
 # ---------------------------------------------------------------------------
 #  Conversion functions
 # ---------------------------------------------------------------------------
@@ -554,6 +675,17 @@ def get_builtin_table(interp: Interpreter) -> dict:
         'replace': _bind(builtin_replace),
         'split': _bind(builtin_split),
         'join': _bind(builtin_join),
+        'instrrev': _bind(builtin_instrrev),
+        'strcomp': _bind(builtin_strcomp),
+        'string': _bind(builtin_string),
+        'space': _bind(builtin_space),
+        'strreverse': _bind(builtin_strreverse),
+        'asc': _bind(builtin_asc),
+        'ascw': _bind(builtin_ascw),
+        'chr': _bind(builtin_chr),
+        'chrw': _bind(builtin_chrw),
+        'hex': _bind(builtin_hex),
+        'oct': _bind(builtin_oct),
         'cstr': _bind(builtin_cstr),
         'cint': _bind(builtin_cint),
         'clng': _bind(builtin_clng),

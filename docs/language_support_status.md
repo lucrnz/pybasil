@@ -49,7 +49,8 @@
   - `ExecuteGlobal code` - parse and execute VBScript code in the global scope
 - **Built-in runtime**:
   - `WScript.Echo`, `WScript.Quit`
-  - String helpers (`Len`, `Left`, `Right`, `Mid`, `Trim`, `LTrim`, `RTrim`, `UCase`, `LCase`, `InStr`, `Replace`, `Split`, `Join`)
+  - String helpers (`Len`, `Left`, `Right`, `Mid`, `Trim`, `LTrim`, `RTrim`, `UCase`, `LCase`, `InStr`, `InStrRev`, `Replace`, `Split`, `Join`, `StrComp`, `StrReverse`, `String`, `Space`, `Asc`, `AscW`, `Chr`, `ChrW`)
+  - Number-to-string helpers (`Hex`, `Oct`)
   - Conversion/type helpers (`CStr`, `CInt`, `CLng`, `CDbl`, `CBool`, `CDate`, `IsNumeric`, `IsArray`, `IsDate`, `IsEmpty`, `IsNull`, `IsObject`, `TypeName`, `VarType`)
   - Math/random helpers (`Abs`, `Sqr`, `Int`, `Fix`, `Round`, `Rnd`, `Randomize`)
   - `MsgBox`, `InputBox`, `CreateObject`, `GetObject` (simplified behavior)
