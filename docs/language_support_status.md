@@ -12,6 +12,11 @@
   - String: `&`
   - Comparison: `=`, `<>`, `<`, `>`, `<=`, `>=`, `Is`
   - Logical: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp`
+- **With blocks**:
+  - `With obj ... End With` - execute statements against an object
+  - `.Property` access and `.Method(args)` calls inside With blocks
+  - `.Property = value` assignment inside With blocks
+  - Nested With blocks
 - **Control flow**:
   - `If ... Then ... ElseIf ... Else ... End If`
   - `Select Case ... Case ... Case Else ... End Select` (including `Case x To y` ranges and `Case Is > x` comparisons)

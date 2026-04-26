@@ -24,6 +24,8 @@ statement: dim_statement
          | on_error_statement
          | redim_statement
          | erase_statement
+         | with_statement
+         | dot_assignment_statement
 
 // Statement separator - colon is converted to _NL by the postlexer
 // (not %ignore'd, so compound statements like Class...End Class work with colons)
@@ -89,6 +91,8 @@ block_statement: dim_statement
          | on_error_statement
          | redim_statement
          | erase_statement
+         | with_statement
+         | dot_assignment_statement
 
 // For statement: For i = start To end [Step step] ... Next
 for_statement: FOR_KW identifier "=" expression TO_KW expression (STEP_KW expression)? block NEXT_KW
@@ -119,6 +123,12 @@ redim_var: identifier "(" dim_dimensions ")"
 
 // Erase statement: Erase name [, name2]*
 erase_statement: ERASE_KW identifier ("," identifier)*
+
+// With statement: With obj ... End With
+with_statement: WITH_KW expression block END_KW WITH_KW
+
+// Dot assignment for With blocks: .Property = value
+dot_assignment_statement: "." identifier "=" expression
 
 // Sub procedure: Sub name[(params)] ... End Sub
 sub_statement: SUB_KW identifier ("(" param_list? ")")? block END_KW SUB_KW
@@ -229,6 +239,10 @@ empty_args: "(" ")"
      | identifier
      | paren_expr
      | new_expr
+     | dot_access
+
+// Dot access for With blocks: .Property or .Method(args)
+dot_access: "." identifier
 
 // Me expression
 me_expr: ME_KW
@@ -282,6 +296,7 @@ EXIT_KW.2: /exit(?![_a-zA-Z0-9])/i
 REDIM_KW.2: /redim(?![_a-zA-Z0-9])/i
 PRESERVE_KW.2: /preserve(?![_a-zA-Z0-9])/i
 ERASE_KW.2: /erase(?![_a-zA-Z0-9])/i
+WITH_KW.2: /with(?![_a-zA-Z0-9])/i
 FUNCTION_KW.2: /function(?![_a-zA-Z0-9])/i
 SUB_KW.2: /sub(?![_a-zA-Z0-9])/i
 CALL_KW.2: /call(?![_a-zA-Z0-9])/i

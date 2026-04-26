@@ -26,6 +26,7 @@ from .ast_nodes import (
     MethodCall,
     NewExpression,
     ArrayAccess,
+    DotAccess,
     DimVariable,
     DimStatement,
     AssignmentStatement,
@@ -57,6 +58,8 @@ from .ast_nodes import (
     PropertyGetStatement,
     PropertyLetStatement,
     PropertySetStatement,
+    WithStatement,
+    DotAssignmentStatement,
     Parameter,
     BinaryOp,
     UnaryOp,
@@ -262,6 +265,12 @@ class VBScriptTransformer(Transformer):
         if isinstance(expr, Identifier):
             return ExpressionStatement(
                 expression=FunctionCall(name=expr.name, arguments=args)
+            )
+
+        # If the expression is a DotAccess, convert to MethodCall on the DotAccess
+        if isinstance(expr, DotAccess):
+            return ExpressionStatement(
+                expression=MethodCall(object=expr, method=expr.member, arguments=args)
             )
 
         return ExpressionStatement(expression=expr)
@@ -482,6 +491,10 @@ class VBScriptTransformer(Transformer):
                     result = MethodCall(
                         object=result.object, method=result.member, arguments=item
                     )
+                elif isinstance(result, DotAccess):
+                    result = MethodCall(
+                        object=result, method=result.member, arguments=item
+                    )
                 elif isinstance(result, ArrayAccess):
                     # Chained array access like arr(i)(j) - not common but possible
                     result = ArrayAccess(
@@ -618,6 +631,7 @@ class VBScriptTransformer(Transformer):
             ArrayAccess,
             CaseRange,
             CaseComparison,
+            DotAccess,
         )
 
         # Statement types that indicate this is the body
@@ -640,6 +654,8 @@ class VBScriptTransformer(Transformer):
             EraseStatement,
             AssignmentStatement,
             SetStatement,
+            WithStatement,
+            DotAssignmentStatement,
         )
 
         for item in items:
@@ -974,6 +990,27 @@ class VBScriptTransformer(Transformer):
     # ------------------------------------------------------------------
     #  Me expression
     # ------------------------------------------------------------------
+
+    def with_statement(self, items: List) -> WithStatement:
+        """Transform With ... End With statement."""
+        filtered = [item for item in items if not isinstance(item, Token)]
+        obj_expr = filtered[0]
+        body = filtered[1] if len(filtered) > 1 and isinstance(filtered[1], list) else []
+        return WithStatement(object=obj_expr, body=body)
+
+    def dot_assignment_statement(self, items: List) -> DotAssignmentStatement:
+        """Transform .member = expression inside With blocks."""
+        filtered = [item for item in items if not isinstance(item, Token)]
+        member = filtered[0].name if isinstance(filtered[0], Identifier) else str(filtered[0])
+        expr = filtered[1]
+        return DotAssignmentStatement(member=member, expression=expr)
+
+    def dot_access(self, items: List) -> DotAccess:
+        """Transform .member inside With blocks."""
+        for item in items:
+            if isinstance(item, Identifier):
+                return DotAccess(member=item.name)
+        return DotAccess(member=str(items[0]))
 
     def me_expr(self, items: List) -> MeExpression:
         return MeExpression()

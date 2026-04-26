@@ -34,6 +34,7 @@ from .ast_nodes import (
     MethodCall,
     NewExpression,
     ArrayAccess,
+    DotAccess,
     MeExpression,
     DimStatement,
     AssignmentStatement,
@@ -59,6 +60,8 @@ from .ast_nodes import (
     PropertyGetStatement,
     PropertyLetStatement,
     PropertySetStatement,
+    WithStatement,
+    DotAssignmentStatement,
     BinaryOp,
     UnaryOp,
     ComparisonOp,
@@ -204,6 +207,7 @@ class Interpreter:
         self._local_class_scopes: List[Dict[str, VBScriptClassDef]] = []
         self._definition_scope_is_global = False
         self._current_instance: VBScriptClassInstance | None = None  # Me reference
+        self._with_stack: List[Any] = []  # Stack of With objects
         self._error_mode: ErrorHandlingMode = ErrorHandlingMode.DEFAULT
         self._err: ErrObject = ErrObject()
         self._setup_builtins()
@@ -335,6 +339,8 @@ class Interpreter:
         ReDimStatement: '_execute_ReDimStatement',
         EraseStatement: '_execute_EraseStatement',
         ClassStatement: '_execute_ClassStatement',
+        WithStatement: '_execute_WithStatement',
+        DotAssignmentStatement: '_execute_DotAssignmentStatement',
     }
 
     _EVALUATE_DISPATCH = {
@@ -353,6 +359,7 @@ class Interpreter:
         MethodCall: '_evaluate_MethodCall',
         NewExpression: '_evaluate_NewExpression',
         ArrayAccess: '_evaluate_ArrayAccess',
+        DotAccess: '_evaluate_DotAccess',
         MeExpression: '_evaluate_MeExpression',
     }
 
@@ -451,6 +458,26 @@ class Interpreter:
         """Execute a property assignment statement like obj.Prop = value or obj.Prop("key") = value."""
         value = self._evaluate(node.expression)
         target = node.target
+
+        if isinstance(target, DotAccess):
+            # .Property = value inside With block
+            if not self._with_stack:
+                raise VBScriptError('Invalid use of dot access outside With block')
+            obj = self._with_stack[-1]
+            if isinstance(obj, VBScriptClassInstance):
+                self._class_instance_member_set(obj, target.member, value)
+                return
+            if isinstance(obj, VBScriptDictionary):
+                prop_name = target.member.lower()
+                if prop_name == 'comparemode':
+                    obj.CompareMode = int(value)
+                    return
+                raise VBScriptError(
+                    f"Object doesn't support this property or method: {target.member}"
+                )
+            raise VBScriptError(
+                f"Object doesn't support this property or method: {target.member}"
+            )
 
         if isinstance(target, MemberAccess):
             # obj.Property = value or obj.Property(args) = value
@@ -680,7 +707,7 @@ class Interpreter:
         # The parser sees "WScript.Echo -1" as BinaryExpression(SUB,
         # MemberAccess(WScript, Echo), 1) instead of a method call with
         # argument -1.  Re-interpret as MethodCall when the left operand
-        # is a MemberAccess (i.e. looks like a callable).
+        # is a MemberAccess or DotAccess (i.e. looks like a callable).
         if isinstance(node.expression, BinaryExpression) and node.expression.operator in (BinaryOp.ADD, BinaryOp.SUB):
             left = node.expression.left
             if isinstance(left, MemberAccess):
@@ -689,6 +716,16 @@ class Interpreter:
                     arg = UnaryExpression(operator=UnaryOp.NEG, operand=arg)
                 rewritten = MethodCall(
                     object=left.object, method=left.member, arguments=[arg]
+                )
+                return self._evaluate(rewritten)
+            if isinstance(left, DotAccess):
+                if not self._with_stack:
+                    raise VBScriptError('Invalid use of dot access outside With block')
+                arg = node.expression.right
+                if node.expression.operator == BinaryOp.SUB:
+                    arg = UnaryExpression(operator=UnaryOp.NEG, operand=arg)
+                rewritten = MethodCall(
+                    object=left, method=left.member, arguments=[arg]
                 )
                 return self._evaluate(rewritten)
 
@@ -1057,6 +1094,37 @@ class Interpreter:
             if isinstance(arr, VBScriptArray):
                 arr.erase()
 
+    def _execute_WithStatement(self, node: WithStatement) -> None:
+        """Execute a With...End With statement."""
+        obj = self._evaluate(node.object)
+        self._with_stack.append(obj)
+        try:
+            for stmt in node.body:
+                self._execute_with_error_handling(stmt)
+        finally:
+            self._with_stack.pop()
+
+    def _execute_DotAssignmentStatement(self, node: DotAssignmentStatement) -> None:
+        """Execute .member = value inside a With block."""
+        if not self._with_stack:
+            raise VBScriptError('Invalid use of dot access outside With block')
+        obj = self._with_stack[-1]
+        value = self._evaluate(node.expression)
+        if isinstance(obj, VBScriptClassInstance):
+            self._class_instance_member_set(obj, node.member, value)
+        elif isinstance(obj, VBScriptDictionary):
+            prop_name = node.member.lower()
+            if prop_name == 'comparemode':
+                obj.CompareMode = int(value)
+            else:
+                raise VBScriptError(
+                    f"Object doesn't support this property or method: {node.member}"
+                )
+        else:
+            raise VBScriptError(
+                f"Object doesn't support this property or method: {node.member}"
+            )
+
     # ------------------------------------------------------------------
     #  Class handler
     # ------------------------------------------------------------------
@@ -1388,9 +1456,9 @@ class Interpreter:
         right = self._evaluate(node.right)
         return self._apply_comparison_op(node.operator, left, right)
 
-    def _evaluate_MemberAccess(self, node: MemberAccess) -> Any:
+    def _evaluate_MemberAccess(self, node: MemberAccess, resolved_obj: Any = None) -> Any:
         """Evaluate member access (e.g., WScript.Echo)."""
-        obj = self._evaluate(node.object)
+        obj = resolved_obj if resolved_obj is not None else self._evaluate(node.object)
 
         if obj is None or isinstance(obj, VBScriptNothing):
             raise VBScriptError(f'Object required: {node.member}')
@@ -1550,9 +1618,17 @@ class Interpreter:
 
     def _evaluate_MethodCall(self, node: MethodCall) -> Any:
         """Evaluate a method call."""
-        obj = self._evaluate(node.object)
-        method = node.method
-        args = [self._evaluate(arg) for arg in node.arguments]
+        # Handle DotAccess inside With blocks: .Method(args)
+        if isinstance(node.object, DotAccess):
+            if not self._with_stack:
+                raise VBScriptError('Invalid use of dot access outside With block')
+            obj = self._with_stack[-1]
+            method = node.object.member
+            args = [self._evaluate(arg) for arg in node.arguments]
+        else:
+            obj = self._evaluate(node.object)
+            method = node.method
+            args = [self._evaluate(arg) for arg in node.arguments]
 
         if callable(obj):
             return obj(*args)
@@ -1643,6 +1719,16 @@ class Interpreter:
         if class_def is None:
             raise VBScriptError(f'Class not defined: {node.class_name}')
         return self._instantiate_class(class_def)
+
+    def _evaluate_DotAccess(self, node: DotAccess) -> Any:
+        """Evaluate .member inside a With block by resolving against the With object."""
+        if not self._with_stack:
+            raise VBScriptError('Invalid use of dot access outside With block')
+        obj = self._with_stack[-1]
+        return self._evaluate_MemberAccess(
+            MemberAccess(object=NumberLiteral(value=0), member=node.member),
+            resolved_obj=obj,
+        )
 
     def _evaluate_MeExpression(self, node: MeExpression) -> Any:
         """Evaluate the Me keyword."""

@@ -235,6 +235,13 @@ class FunctionStatement(ASTNode):
 
 
 @dataclass
+class DotAccess(ASTNode):
+    """Dot access inside a With block: .Property"""
+
+    member: str
+
+
+@dataclass
 class MeExpression(ASTNode):
     pass
 
@@ -409,6 +416,22 @@ class ExitStatement(ASTNode):
 
 
 @dataclass
+class WithStatement(ASTNode):
+    """With object ... End With"""
+
+    object: ASTNode
+    body: List[ASTNode] = field(default_factory=list)
+
+
+@dataclass
+class DotAssignmentStatement(ASTNode):
+    """Dot assignment inside With block: .Property = value"""
+
+    member: str
+    expression: ASTNode = None
+
+
+@dataclass
 class OnErrorResumeNextStatement(ASTNode):
     """On Error Resume Next - continue execution after errors."""
 
@@ -465,6 +488,7 @@ Statement = Union[
     SubStatement,
     FunctionStatement,
     ClassStatement,
+    WithStatement,
     OnErrorResumeNextStatement,
     OnErrorGoToStatement,
     ReDimStatement,
