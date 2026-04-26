@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import sys
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
@@ -54,6 +55,179 @@ NULL = VBScriptNull()
 # distinguish "key absent" from "value is None/Empty".  See the comment
 # in interpreter.py for why the lookup is inlined.
 _NOT_FOUND = object()
+
+
+# ---------------------------------------------------------------------------
+#  VBScriptDate  (OLE Automation date)
+# ---------------------------------------------------------------------------
+
+# OLE Automation epoch: 1899-12-30 00:00:00
+_OLE_EPOCH = datetime(1899, 12, 30)
+_SECONDS_PER_DAY = 86400.0
+
+
+class VBScriptDate:
+    """VBScript Date value backed by an OLE Automation serial number.
+
+    The integer part counts days from 1899-12-30 (day 0).
+    The fractional part represents the time of day.
+    """
+
+    __slots__ = ('_serial',)
+
+    def __init__(self, serial: float = 0.0):
+        self._serial = serial
+
+    # -- construction helpers ------------------------------------------------
+
+    @classmethod
+    def from_datetime(cls, dt: datetime) -> 'VBScriptDate':
+        delta = dt - _OLE_EPOCH
+        serial = delta.days + delta.seconds / _SECONDS_PER_DAY
+        return cls(serial)
+
+    @classmethod
+    def from_date_parts(cls, year: int, month: int, day: int) -> 'VBScriptDate':
+        dt = datetime(year, month, day)
+        return cls.from_datetime(dt)
+
+    @classmethod
+    def from_time_parts(cls, hour: int, minute: int, second: int) -> 'VBScriptDate':
+        serial = (hour * 3600 + minute * 60 + second) / _SECONDS_PER_DAY
+        return cls(serial)
+
+    @classmethod
+    def from_string(cls, s: str) -> 'VBScriptDate':
+        """Parse common date/time string formats."""
+        s = s.strip()
+        if not s:
+            raise VBScriptError('Type mismatch')
+
+        # Try datetime formats
+        for fmt in (
+            '%m/%d/%Y %I:%M:%S %p',
+            '%m/%d/%Y %H:%M:%S',
+            '%m/%d/%Y %H:%M',
+            '%m/%d/%Y',
+            '%Y-%m-%d %H:%M:%S',
+            '%Y-%m-%d',
+            '%m-%d-%Y',
+            '%d-%b-%Y',
+            '%d-%b-%y',
+            '%B %d, %Y',
+            '%b %d, %Y',
+            '%I:%M:%S %p',
+            '%H:%M:%S',
+            '%H:%M',
+        ):
+            try:
+                dt = datetime.strptime(s, fmt)
+                return cls.from_datetime(dt)
+            except ValueError:
+                continue
+
+        raise VBScriptError(f'Type mismatch: cannot convert \'{s}\' to Date')
+
+    # -- conversion ----------------------------------------------------------
+
+    def to_datetime(self) -> datetime:
+        serial = self._serial
+        days = int(serial)
+        frac = abs(serial - days)
+        total_seconds = round(frac * _SECONDS_PER_DAY)
+        return _OLE_EPOCH + timedelta(days=days, seconds=total_seconds)
+
+    @property
+    def serial(self) -> float:
+        return self._serial
+
+    # -- component accessors -------------------------------------------------
+
+    @property
+    def year(self) -> int:
+        return self.to_datetime().year
+
+    @property
+    def month(self) -> int:
+        return self.to_datetime().month
+
+    @property
+    def day(self) -> int:
+        return self.to_datetime().day
+
+    @property
+    def hour(self) -> int:
+        return self.to_datetime().hour
+
+    @property
+    def minute(self) -> int:
+        return self.to_datetime().minute
+
+    @property
+    def second(self) -> int:
+        return self.to_datetime().second
+
+    @property
+    def weekday(self) -> int:
+        """VBScript weekday: 1=Sunday, 2=Monday, ..., 7=Saturday."""
+        # Python: Monday=0 ... Sunday=6
+        py_wd = self.to_datetime().weekday()
+        return (py_wd + 2) % 7 or 7
+
+    # -- formatting ----------------------------------------------------------
+
+    def _format_date(self, dt: datetime) -> str:
+        return f'{dt.month}/{dt.day}/{dt.year}'
+
+    def _format_time(self, dt: datetime) -> str:
+        h = dt.hour % 12 or 12
+        ampm = 'AM' if dt.hour < 12 else 'PM'
+        return f'{h}:{dt.minute:02d}:{dt.second:02d} {ampm}'
+
+    def __str__(self) -> str:
+        dt = self.to_datetime()
+        has_date = int(self._serial) != 0
+        frac = round((self._serial % 1) * _SECONDS_PER_DAY)
+        has_time = frac != 0
+        if has_date and has_time:
+            return f'{self._format_date(dt)} {self._format_time(dt)}'
+        elif has_time:
+            return self._format_time(dt)
+        else:
+            return self._format_date(dt)
+
+    def __repr__(self) -> str:
+        return f'VBScriptDate({self._serial})'
+
+    # -- comparison / arithmetic (used by interpreter operators) -------------
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, VBScriptDate):
+            return self._serial == other._serial
+        return NotImplemented
+
+    def __lt__(self, other: 'VBScriptDate') -> bool:
+        if isinstance(other, VBScriptDate):
+            return self._serial < other._serial
+        return NotImplemented
+
+    def __le__(self, other: 'VBScriptDate') -> bool:
+        if isinstance(other, VBScriptDate):
+            return self._serial <= other._serial
+        return NotImplemented
+
+    def __gt__(self, other: 'VBScriptDate') -> bool:
+        if isinstance(other, VBScriptDate):
+            return self._serial > other._serial
+        return NotImplemented
+
+    def __ge__(self, other: 'VBScriptDate') -> bool:
+        if isinstance(other, VBScriptDate):
+            return self._serial >= other._serial
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self._serial)
 
 
 # ---------------------------------------------------------------------------
@@ -579,6 +753,8 @@ class WScriptObject:
             return 'True'
         elif value is False:
             return 'False'
+        elif isinstance(value, VBScriptDate):
+            return str(value)
         elif isinstance(value, VBScriptNothing):
             return 'Nothing'
         elif isinstance(value, VBScriptEmpty):

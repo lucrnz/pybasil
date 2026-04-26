@@ -28,6 +28,7 @@ from .runtime import (
     VBScriptNothing,
     VBScriptEmpty,
     VBScriptNull,
+    VBScriptDate,
     VBScriptArray,
     VBScriptDictionary,
     VBScriptClassInstance,
@@ -377,9 +378,15 @@ def builtin_cbool(interp: Interpreter, value: Any) -> bool:
     return interp._to_boolean(value)
 
 
-def builtin_cdate(interp: Interpreter, value: Any) -> Any:
-    """CDate function (simplified)."""
-    return interp._to_string(value)
+def builtin_cdate(interp: Interpreter, value: Any) -> VBScriptDate:
+    """CDate function - convert a value to a Date."""
+    if isinstance(value, VBScriptDate):
+        return value
+    if isinstance(value, str):
+        return VBScriptDate.from_string(value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return VBScriptDate(float(value))
+    raise VBScriptError('Type mismatch')
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +412,15 @@ def builtin_isarray(interp: Interpreter, value: Any) -> bool:
 
 
 def builtin_isdate(interp: Interpreter, value: Any) -> bool:
-    """IsDate function (simplified)."""
+    """IsDate function - returns True if value is or can be converted to a Date."""
+    if isinstance(value, VBScriptDate):
+        return True
+    if isinstance(value, str):
+        try:
+            VBScriptDate.from_string(value)
+            return True
+        except VBScriptError:
+            return False
     return False
 
 
@@ -439,6 +454,8 @@ def builtin_typename(interp: Interpreter, value: Any) -> str:
         return 'Null'
     if isinstance(value, VBScriptNothing):
         return 'Nothing'
+    if isinstance(value, VBScriptDate):
+        return 'Date'
     if isinstance(value, VBScriptClassInstance):
         return value.class_name
     if isinstance(value, VBScriptArray):
@@ -462,6 +479,8 @@ def builtin_vartype(interp: Interpreter, value: Any) -> int:
         return 0  # vbEmpty
     if isinstance(value, VBScriptNull):
         return 1  # vbNull
+    if isinstance(value, VBScriptDate):
+        return 7  # vbDate
     if isinstance(value, bool):
         return 11  # vbBoolean
     if isinstance(value, int):
@@ -560,6 +579,318 @@ def builtin_tan(interp: Interpreter, value: Any) -> float:
 def builtin_atn(interp: Interpreter, value: Any) -> float:
     """Atn function - arctangent."""
     return math.atan(interp._to_number(value))
+
+
+# ---------------------------------------------------------------------------
+#  Date/time functions
+# ---------------------------------------------------------------------------
+
+def _ensure_date(interp: Interpreter, value: Any) -> VBScriptDate:
+    """Coerce a value to VBScriptDate."""
+    if isinstance(value, VBScriptDate):
+        return value
+    if isinstance(value, str):
+        return VBScriptDate.from_string(value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return VBScriptDate(float(value))
+    raise VBScriptError('Type mismatch')
+
+
+def builtin_now(interp: Interpreter) -> VBScriptDate:
+    """Now function - current date and time."""
+    from datetime import datetime as _dt
+    return VBScriptDate.from_datetime(_dt.now())
+
+
+def builtin_date_func(interp: Interpreter) -> VBScriptDate:
+    """Date function - current date (no time component)."""
+    from datetime import datetime as _dt
+    today = _dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    return VBScriptDate.from_datetime(today)
+
+
+def builtin_time_func(interp: Interpreter) -> VBScriptDate:
+    """Time function - current time (no date component)."""
+    from datetime import datetime as _dt
+    now = _dt.now()
+    return VBScriptDate.from_time_parts(now.hour, now.minute, now.second)
+
+
+def builtin_timer(interp: Interpreter) -> float:
+    """Timer function - seconds elapsed since midnight."""
+    from datetime import datetime as _dt
+    now = _dt.now()
+    return now.hour * 3600 + now.minute * 60 + now.second + now.microsecond / 1e6
+
+
+def builtin_year(interp: Interpreter, date: Any) -> int:
+    """Year function - extract year from a date."""
+    return _ensure_date(interp, date).year
+
+
+def builtin_month(interp: Interpreter, date: Any) -> int:
+    """Month function - extract month from a date."""
+    return _ensure_date(interp, date).month
+
+
+def builtin_day(interp: Interpreter, date: Any) -> int:
+    """Day function - extract day from a date."""
+    return _ensure_date(interp, date).day
+
+
+def builtin_hour(interp: Interpreter, time: Any) -> int:
+    """Hour function - extract hour from a date/time."""
+    return _ensure_date(interp, time).hour
+
+
+def builtin_minute(interp: Interpreter, time: Any) -> int:
+    """Minute function - extract minute from a date/time."""
+    return _ensure_date(interp, time).minute
+
+
+def builtin_second(interp: Interpreter, time: Any) -> int:
+    """Second function - extract second from a date/time."""
+    return _ensure_date(interp, time).second
+
+
+def builtin_weekday(interp: Interpreter, date: Any, first_day: int = 1) -> int:
+    """Weekday function - day of week (1=Sunday by default)."""
+    d = _ensure_date(interp, date)
+    # VBScript weekday: 1=Sunday..7=Saturday (when firstdayofweek=vbSunday=1)
+    vbs_wd = d.weekday  # already 1=Sun..7=Sat
+    if first_day == 1:
+        return vbs_wd
+    # Rotate: result = ((vbs_wd - first_day) % 7) + 1
+    return ((vbs_wd - first_day) % 7) + 1
+
+
+def builtin_weekdayname(
+    interp: Interpreter, weekday: Any, abbreviate: Any = False, first_day: int = 1,
+) -> str:
+    """WeekdayName function - name of a weekday."""
+    wd = int(interp._to_number(weekday))
+    abbr = interp._to_boolean(abbreviate)
+    # Map weekday number (1=Sun..7=Sat when firstdayofweek=1) to name
+    # Adjust for first_day
+    actual_wd = ((wd - 1 + (first_day - 1)) % 7)  # 0=Sun..6=Sat
+    names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    abbr_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    if actual_wd < 0 or actual_wd > 6:
+        raise VBScriptError('Invalid procedure call or argument')
+    return abbr_names[actual_wd] if abbr else names[actual_wd]
+
+
+def builtin_monthname(interp: Interpreter, month: Any, abbreviate: Any = False) -> str:
+    """MonthName function - name of a month."""
+    m = int(interp._to_number(month))
+    abbr = interp._to_boolean(abbreviate)
+    if m < 1 or m > 12:
+        raise VBScriptError('Invalid procedure call or argument')
+    names = [
+        '', 'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+    ]
+    abbr_names = [
+        '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ]
+    return abbr_names[m] if abbr else names[m]
+
+
+def builtin_dateserial(interp: Interpreter, year: Any, month: Any, day: Any) -> VBScriptDate:
+    """DateSerial function - create a date from year, month, day."""
+    from datetime import datetime as _dt
+    y = int(interp._to_number(year))
+    m = int(interp._to_number(month))
+    d = int(interp._to_number(day))
+    # VBScript DateSerial handles overflow: DateSerial(2000, 13, 1) = 1/1/2001
+    # Use timedelta arithmetic from a base date
+    base = _dt(y, 1, 1)
+    from datetime import timedelta
+    result = base + timedelta(days=d - 1)
+    # Adjust month: add (m-1) months
+    if m != 1:
+        target_month = base.month + (m - 1)
+        target_year = base.year
+        while target_month > 12:
+            target_month -= 12
+            target_year += 1
+        while target_month < 1:
+            target_month += 12
+            target_year -= 1
+        # Set to first of target month, then add days
+        result = _dt(target_year, target_month, 1) + timedelta(days=d - 1)
+    return VBScriptDate.from_datetime(result)
+
+
+def builtin_datevalue(interp: Interpreter, date: Any) -> VBScriptDate:
+    """DateValue function - extract the date portion (strip time)."""
+    d = _ensure_date(interp, date)
+    return VBScriptDate(float(int(d.serial)))
+
+
+def builtin_timeserial(interp: Interpreter, hour: Any, minute: Any, second: Any) -> VBScriptDate:
+    """TimeSerial function - create a time from hour, minute, second."""
+    h = int(interp._to_number(hour))
+    m = int(interp._to_number(minute))
+    s = int(interp._to_number(second))
+    total_seconds = h * 3600 + m * 60 + s
+    from .runtime import _SECONDS_PER_DAY
+    return VBScriptDate(total_seconds / _SECONDS_PER_DAY)
+
+
+def builtin_timevalue(interp: Interpreter, time: Any) -> VBScriptDate:
+    """TimeValue function - extract the time portion (strip date)."""
+    d = _ensure_date(interp, time)
+    frac = d.serial - int(d.serial)
+    return VBScriptDate(frac)
+
+
+def builtin_dateadd(interp: Interpreter, interval: Any, number: Any, date: Any) -> VBScriptDate:
+    """DateAdd function - add an interval to a date."""
+    from datetime import timedelta
+    intv = interp._to_string(interval).lower()
+    n = int(interp._to_number(number))
+    d = _ensure_date(interp, date)
+    dt = d.to_datetime()
+
+    if intv == 'yyyy':
+        dt = dt.replace(year=dt.year + n)
+    elif intv == 'q':
+        # Quarter: add n*3 months
+        m = dt.month + n * 3
+        y = dt.year
+        while m > 12:
+            m -= 12
+            y += 1
+        while m < 1:
+            m += 12
+            y -= 1
+        dt = dt.replace(year=y, month=m)
+    elif intv == 'm':
+        m = dt.month + n
+        y = dt.year
+        while m > 12:
+            m -= 12
+            y += 1
+        while m < 1:
+            m += 12
+            y -= 1
+        # Handle day overflow (e.g. Jan 31 + 1 month)
+        import calendar
+        max_day = calendar.monthrange(y, m)[1]
+        day = min(dt.day, max_day)
+        dt = dt.replace(year=y, month=m, day=day)
+    elif intv == 'y' or intv == 'd':
+        dt = dt + timedelta(days=n)
+    elif intv == 'w':
+        dt = dt + timedelta(weeks=0, days=n)
+    elif intv == 'ww':
+        dt = dt + timedelta(weeks=n)
+    elif intv == 'h':
+        dt = dt + timedelta(hours=n)
+    elif intv == 'n':
+        dt = dt + timedelta(minutes=n)
+    elif intv == 's':
+        dt = dt + timedelta(seconds=n)
+    else:
+        raise VBScriptError('Invalid procedure call or argument')
+
+    return VBScriptDate.from_datetime(dt)
+
+
+def builtin_datediff(
+    interp: Interpreter, interval: Any, date1: Any, date2: Any,
+    first_day: int = 1, first_week: int = 1,
+) -> int:
+    """DateDiff function - difference between two dates."""
+    intv = interp._to_string(interval).lower()
+    d1 = _ensure_date(interp, date1).to_datetime()
+    d2 = _ensure_date(interp, date2).to_datetime()
+
+    if intv == 'yyyy':
+        return d2.year - d1.year
+    elif intv == 'q':
+        return (d2.year * 4 + (d2.month - 1) // 3) - (d1.year * 4 + (d1.month - 1) // 3)
+    elif intv == 'm':
+        return (d2.year * 12 + d2.month) - (d1.year * 12 + d1.month)
+    elif intv in ('y', 'd'):
+        delta = d2 - d1
+        return delta.days
+    elif intv == 'w':
+        delta = d2 - d1
+        return delta.days // 7
+    elif intv == 'ww':
+        delta = d2 - d1
+        return delta.days // 7
+    elif intv == 'h':
+        delta = d2 - d1
+        return int(delta.total_seconds() // 3600)
+    elif intv == 'n':
+        delta = d2 - d1
+        return int(delta.total_seconds() // 60)
+    elif intv == 's':
+        delta = d2 - d1
+        return int(delta.total_seconds())
+    else:
+        raise VBScriptError('Invalid procedure call or argument')
+
+
+def builtin_datepart(
+    interp: Interpreter, interval: Any, date: Any,
+    first_day: int = 1, first_week: int = 1,
+) -> int:
+    """DatePart function - extract a part of a date."""
+    intv = interp._to_string(interval).lower()
+    d = _ensure_date(interp, date).to_datetime()
+
+    if intv == 'yyyy':
+        return d.year
+    elif intv == 'q':
+        return (d.month - 1) // 3 + 1
+    elif intv == 'm':
+        return d.month
+    elif intv == 'y':
+        return d.timetuple().tm_yday
+    elif intv == 'd':
+        return d.day
+    elif intv == 'w':
+        # Weekday, respecting first_day
+        vbs_wd = _ensure_date(interp, date).weekday
+        if first_day == 1:
+            return vbs_wd
+        return ((vbs_wd - first_day) % 7) + 1
+    elif intv == 'ww':
+        # Week of year
+        return d.isocalendar()[1]
+    elif intv == 'h':
+        return d.hour
+    elif intv == 'n':
+        return d.minute
+    elif intv == 's':
+        return d.second
+    else:
+        raise VBScriptError('Invalid procedure call or argument')
+
+
+def builtin_formatdatetime(interp: Interpreter, date: Any, format_type: int = 0) -> str:
+    """FormatDateTime function - format a date/time value."""
+    d = _ensure_date(interp, date)
+    dt = d.to_datetime()
+    fmt = int(format_type)
+
+    if fmt == 0:  # vbGeneralDate
+        return str(d)
+    elif fmt == 1:  # vbLongDate
+        return dt.strftime('%A, %B %d, %Y')
+    elif fmt == 2:  # vbShortDate
+        return d._format_date(dt)
+    elif fmt == 3:  # vbLongTime
+        return d._format_time(dt)
+    elif fmt == 4:  # vbShortTime
+        return f'{dt.hour:02d}:{dt.minute:02d}'
+    else:
+        raise VBScriptError('Invalid procedure call or argument')
 
 
 # ---------------------------------------------------------------------------
@@ -757,6 +1088,27 @@ def get_builtin_table(interp: Interpreter) -> dict:
         'sin': _bind(builtin_sin),
         'tan': _bind(builtin_tan),
         'atn': _bind(builtin_atn),
+        'now': _bind(builtin_now),
+        'date': _bind(builtin_date_func),
+        'time': _bind(builtin_time_func),
+        'timer': _bind(builtin_timer),
+        'year': _bind(builtin_year),
+        'month': _bind(builtin_month),
+        'day': _bind(builtin_day),
+        'hour': _bind(builtin_hour),
+        'minute': _bind(builtin_minute),
+        'second': _bind(builtin_second),
+        'weekday': _bind(builtin_weekday),
+        'weekdayname': _bind(builtin_weekdayname),
+        'monthname': _bind(builtin_monthname),
+        'dateserial': _bind(builtin_dateserial),
+        'datevalue': _bind(builtin_datevalue),
+        'timeserial': _bind(builtin_timeserial),
+        'timevalue': _bind(builtin_timevalue),
+        'dateadd': _bind(builtin_dateadd),
+        'datediff': _bind(builtin_datediff),
+        'datepart': _bind(builtin_datepart),
+        'formatdatetime': _bind(builtin_formatdatetime),
         'createobject': _bind(builtin_createobject),
         'getobject': _bind(builtin_getobject),
         'ubound': _bind(builtin_ubound),

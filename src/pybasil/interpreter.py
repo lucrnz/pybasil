@@ -80,6 +80,7 @@ from .runtime import (
     VBScriptNothing,
     VBScriptEmpty,
     VBScriptNull,
+    VBScriptDate,
     NOTHING,
     EMPTY,
     NULL,
@@ -2110,6 +2111,8 @@ class Interpreter:
                 raise VBScriptError(
                     f"Type mismatch: cannot convert '{value}' to number"
                 )
+        if isinstance(value, VBScriptDate):
+            return value.serial
         if isinstance(value, VBScriptNull):
             raise VBScriptError('Type mismatch: cannot convert Null to number')
         if isinstance(value, VBScriptNothing):
@@ -2127,6 +2130,8 @@ class Interpreter:
         if isinstance(value, float):
             if value.is_integer():
                 return str(int(value))
+            return str(value)
+        if isinstance(value, VBScriptDate):
             return str(value)
         if isinstance(value, VBScriptEmpty):
             return ''
@@ -2152,6 +2157,8 @@ class Interpreter:
             if value.lower() == 'false':
                 return False
             return True
+        if isinstance(value, VBScriptDate):
+            return value.serial != 0.0
         if isinstance(value, VBScriptEmpty):
             return False
         if isinstance(value, VBScriptNull):
