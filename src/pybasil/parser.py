@@ -27,6 +27,7 @@ from .ast_nodes import (
     NewExpression,
     ArrayAccess,
     DotAccess,
+    ConstStatement,
     DimVariable,
     DimStatement,
     AssignmentStatement,
@@ -97,6 +98,21 @@ class VBScriptTransformer(Transformer):
         if not items:
             return None
         return items[0]
+
+    def const_statement(self, items: List) -> ConstStatement:
+        """Transform Const statement."""
+        constants = []
+        for item in items:
+            if isinstance(item, tuple):
+                constants.append(item)
+        return ConstStatement(constants=constants)
+
+    def const_assignment(self, items: List) -> tuple:
+        """Transform a single const assignment: name = expression."""
+        filtered = [item for item in items if not isinstance(item, Token)]
+        name = filtered[0].name if isinstance(filtered[0], Identifier) else str(filtered[0])
+        expr = filtered[1]
+        return (name, expr)
 
     def dim_statement(self, items: List) -> DimStatement:
         """Transform Dim statement with optional array dimensions."""
@@ -656,6 +672,7 @@ class VBScriptTransformer(Transformer):
             SetStatement,
             WithStatement,
             DotAssignmentStatement,
+            ConstStatement,
         )
 
         for item in items:

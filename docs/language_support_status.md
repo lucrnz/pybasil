@@ -6,7 +6,7 @@
   - Implicit variable creation is supported (`Empty` default)
   - `Dim` declarations (single and multiple variables)
   - Literals: numbers (including scientific notation), hex (`&HFF`), octal (`&O77`), strings, booleans, `Nothing`, `Empty`, `Null`
-- **Statements**: `Dim`, assignments (`Let` optional), `Set`, `Call`, property assignments (`obj.Prop = value`), and expression statements (for things like `WScript.Echo`)
+- **Statements**: `Dim`, `Const`, assignments (`Let` optional), `Set`, `Call`, property assignments (`obj.Prop = value`), and expression statements (for things like `WScript.Echo`)
 - **Operators**:
   - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
   - String: `&`

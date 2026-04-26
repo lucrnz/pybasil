@@ -5,7 +5,8 @@
 start: (_NL | statement)*
 
 // Statements can be separated by newlines or colons
-statement: dim_statement
+statement: const_statement
+         | dim_statement
          | assignment_statement
          | set_statement
          | property_assignment_statement
@@ -29,6 +30,10 @@ statement: dim_statement
 
 // Statement separator - colon is converted to _NL by the postlexer
 // (not %ignore'd, so compound statements like Class...End Class work with colons)
+
+// Const statement: Const name = value [, name2 = value2]*
+const_statement: CONST_KW const_assignment ("," const_assignment)*
+const_assignment: identifier "=" expression
 
 // Dim statement - can declare single or multiple variables (with optional array dimensions)
 dim_statement: DIM_KW dim_var ("," dim_var)*
@@ -75,7 +80,8 @@ case_else_clause: CASE_KW ELSE_KW _NL block
 block: (_NL | block_statement)*
 
 // Block statements - same as statement but excludes procedure definitions
-block_statement: dim_statement
+block_statement: const_statement
+         | dim_statement
          | assignment_statement
          | property_assignment_statement
          | set_statement
@@ -271,6 +277,7 @@ identifier: NAME
 
 // Terminals - Keywords have higher priority than NAME
 // Use word boundary matching to prevent matching keywords as part of identifiers
+CONST_KW.2: /const(?![_a-zA-Z0-9])/i
 DIM_KW.2: /dim(?![_a-zA-Z0-9])/i
 LET_KW.2: /let(?![_a-zA-Z0-9])/i
 SET_KW.2: /set(?![_a-zA-Z0-9])/i

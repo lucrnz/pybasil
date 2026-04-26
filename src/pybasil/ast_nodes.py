@@ -416,6 +416,13 @@ class ExitStatement(ASTNode):
 
 
 @dataclass
+class ConstStatement(ASTNode):
+    """Const name = value [, name2 = value2]*"""
+
+    constants: List[tuple]  # List of (name, expression) tuples
+
+
+@dataclass
 class WithStatement(ASTNode):
     """With object ... End With"""
 
@@ -488,6 +495,7 @@ Statement = Union[
     SubStatement,
     FunctionStatement,
     ClassStatement,
+    ConstStatement,
     WithStatement,
     OnErrorResumeNextStatement,
     OnErrorGoToStatement,
