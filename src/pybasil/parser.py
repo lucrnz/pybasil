@@ -74,7 +74,121 @@ from .ast_nodes import (
     EraseStatement,
 )
 
+def _split_else(code: str) -> tuple:
+    """Split code on the last top-level Else keyword (outside strings).
+
+    Returns (then_code, else_code) where else_code is None when there
+    is no Else.
+    """
+    in_string = False
+    lower = code.lower()
+    # Scan for the *last* Else at the top level (outside strings)
+    best = -1
+    i = 0
+    while i < len(code):
+        if code[i] == '"':
+            in_string = not in_string
+            i += 1
+            continue
+        if not in_string and lower[i:i + 4] == 'else' and (
+            i + 4 >= len(code) or not code[i + 4:i + 5].isalnum() and code[i + 4:i + 5] != '_'
+        ) and (i == 0 or not code[i - 1:i].isalnum() and code[i - 1:i] != '_'):
+            best = i
+        i += 1
+    if best == -1:
+        return (code, None)
+    return (code[:best], code[best + 4:])
+
+
+def _split_colons(code: str) -> list:
+    """Split code on colons that are outside string literals."""
+    parts = []
+    current: list[str] = []
+    in_string = False
+    for ch in code:
+        if ch == '"':
+            in_string = not in_string
+            current.append(ch)
+        elif ch == ':' and not in_string:
+            part = ''.join(current).strip()
+            if part:
+                parts.append(part)
+            current = []
+        else:
+            current.append(ch)
+    part = ''.join(current).strip()
+    if part:
+        parts.append(part)
+    return parts
+
+
+def _contains_end_if(code: str) -> bool:
+    """Check if code contains 'End If' outside string literals."""
+    in_string = False
+    lower = code.lower()
+    i = 0
+    while i < len(code):
+        if code[i] == '"':
+            in_string = not in_string
+            i += 1
+            continue
+        if not in_string and lower[i:i + 6] == 'end if':
+            before_ok = (i == 0 or not code[i - 1].isalnum() and code[i - 1] != '_')
+            after_ok = (i + 6 >= len(code) or not code[i + 6].isalnum() and code[i + 6] != '_')
+            if before_ok and after_ok:
+                return True
+        i += 1
+    return False
+
+
 _REM_RE = re.compile(r'\b[Rr][Ee][Mm](?=\s|$)')
+
+
+def _find_inline_if(line: str):
+    """Find an If...Then pattern at the top level (outside strings).
+
+    Returns ``(indent, condition, tail)`` or ``None``.
+    """
+    stripped = line.lstrip()
+    if not stripped:
+        return None
+    indent = line[:len(line) - len(stripped)]
+
+    # Must start with If keyword (case-insensitive)
+    low = stripped.lower()
+    if not low.startswith('if') or (len(stripped) > 2 and stripped[2:3].isalnum() or stripped[2:3] == '_'):
+        return None
+
+    # Scan for Then keyword outside strings
+    text = stripped[2:]  # skip 'If'
+    i = 0
+    in_string = False
+    then_pos = None
+    text_lower = text.lower()
+    while i < len(text):
+        ch = text[i]
+        if ch == '"':
+            in_string = not in_string
+            i += 1
+            continue
+        if not in_string and text_lower[i:i + 4] == 'then':
+            # Check word boundary
+            before_ok = (i == 0 or not text[i - 1].isalnum() and text[i - 1] != '_')
+            after_ok = (i + 4 >= len(text) or not text[i + 4].isalnum() and text[i + 4] != '_')
+            if before_ok and after_ok:
+                then_pos = i
+                # Use the last Then found outside strings
+                # (but first is fine for typical code)
+                break
+        i += 1
+
+    if then_pos is None:
+        return None
+
+    condition = text[:then_pos].strip()
+    tail = text[then_pos + 4:]  # everything after 'Then'
+
+    return (indent, condition, tail)
 
 
 class VBScriptTransformer(Transformer):
@@ -1193,13 +1307,65 @@ class VBScriptParser:
         return self._lark_parser
 
     def _preprocess(self, source: str) -> str:
-        """Pre-process VBScript source to handle REM comments."""
+        """Pre-process VBScript source to handle REM comments and single-line If."""
         lines = source.split('\n')
         processed_lines = []
         for line in lines:
             new_line = self._replace_rem_outside_strings(line)
-            processed_lines.append(new_line)
+            expanded = self._expand_inline_if(new_line)
+            processed_lines.append(expanded)
         return '\n'.join(processed_lines)
+
+    @staticmethod
+    def _expand_inline_if(line: str) -> str:
+        """Rewrite single-line If...Then...Else to block form.
+
+        Detects ``If cond Then <code> [Else <code>]`` on a single line
+        and rewrites it as a multi-line block If so the LALR grammar
+        can handle it without ambiguity.
+        """
+        # Find If...Then outside of string literals
+        result = _find_inline_if(line)
+        if result is None:
+            return line
+
+        indent, condition, tail = result
+
+        # Strip trailing comment from tail
+        tail_stripped = tail
+        comment = ''
+        in_string = False
+        for ci, ch in enumerate(tail):
+            if ch == '"':
+                in_string = not in_string
+            elif ch == "'" and not in_string:
+                tail_stripped = tail[:ci]
+                comment = tail[ci:]
+                break
+
+        tail_stripped = tail_stripped.rstrip()
+        if not tail_stripped:
+            # Nothing after Then — this is a block If, leave it alone
+            return line
+
+        # If the tail contains "End If" outside strings, this is a block If
+        # written on one line with colons — leave it alone.
+        if _contains_end_if(tail_stripped):
+            return line
+
+        # Split Else (outside strings) to separate Then-body from Else-body
+        then_code, else_code = _split_else(tail_stripped)
+
+        parts = [f'{indent}If {condition} Then']
+        # Then body: split on colons (statement separator) outside strings
+        for stmt in _split_colons(then_code.strip()):
+            parts.append(f'{indent}  {stmt}')
+        if else_code is not None:
+            parts.append(f'{indent}Else')
+            for stmt in _split_colons(else_code.strip()):
+                parts.append(f'{indent}  {stmt}')
+        parts.append(f'{indent}End If{comment}')
+        return '\n'.join(parts)
 
     @staticmethod
     def _replace_rem_outside_strings(line: str) -> str:

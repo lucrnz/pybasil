@@ -4540,14 +4540,12 @@ class TestMathFunctionsTrig:
         assert interp._environment.get('x') == 0.0
 
     def test_sin_pi_half(self):
-        import math
         program = parse('x = Sin(Atn(1) * 2)')
         interp = Interpreter()
         interp.interpret(program)
         assert abs(interp._environment.get('x') - 1.0) < 1e-10
 
     def test_cos_pi(self):
-        import math
         program = parse('x = Cos(Atn(1) * 4)')
         interp = Interpreter()
         interp.interpret(program)
@@ -4561,7 +4559,6 @@ class TestMathFunctionsTrig:
         assert abs(interp._environment.get('x') - math.pi / 4) < 1e-10
 
     def test_tan_pi_over_4(self):
-        import math
         program = parse('x = Tan(Atn(1))')
         interp = Interpreter()
         interp.interpret(program)
@@ -4569,7 +4566,6 @@ class TestMathFunctionsTrig:
 
     def test_sin_cos_identity(self):
         """Sin^2 + Cos^2 = 1"""
-        import math
         program = parse('''
         Dim angle
         angle = 1.23
@@ -4586,3 +4582,190 @@ class TestMathFunctionsTrig:
         interp = Interpreter()
         interp.interpret(program)
         assert abs(interp._environment.get('pi') - math.pi) < 1e-10
+
+
+class TestSingleLineIf:
+    """Test single-line If...Then [Else] statements."""
+
+    def test_inline_if_true(self):
+        program = parse('If True Then x = 1')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 1
+
+    def test_inline_if_false(self):
+        program = parse('If False Then x = 1')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == EMPTY
+
+    def test_inline_if_else_true(self):
+        program = parse('If True Then x = 1 Else x = 2')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 1
+
+    def test_inline_if_else_false(self):
+        program = parse('If False Then x = 1 Else x = 2')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 2
+
+    def test_inline_if_expression_condition(self):
+        program = parse('''
+        Dim n
+        n = 10
+        If n > 5 Then result = "big" Else result = "small"
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('result') == 'big'
+
+    def test_inline_if_expression_condition_false(self):
+        program = parse('''
+        Dim n
+        n = 3
+        If n > 5 Then result = "big" Else result = "small"
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('result') == 'small'
+
+    def test_inline_if_multiple_statements_colon(self):
+        program = parse('If True Then x = 1 : y = 2')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 1
+        assert interp._environment.get('y') == 2
+
+    def test_inline_if_else_multiple_statements(self):
+        program = parse('If False Then x = 1 : y = 2 Else x = 3 : y = 4')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 3
+        assert interp._environment.get('y') == 4
+
+    def test_inline_if_with_string_containing_then(self):
+        """Ensure 'Then' inside a string doesn't confuse the parser."""
+        program = parse('If True Then x = "Then what"')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'Then what'
+
+    def test_inline_if_with_string_containing_else(self):
+        """Ensure 'Else' inside a string doesn't confuse the parser."""
+        program = parse('If True Then x = "Else nothing"')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'Else nothing'
+
+    def test_inline_if_method_call(self):
+        output = io.StringIO()
+        program = parse('If True Then WScript.Echo "yes"')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == 'yes'
+
+    def test_inline_if_method_call_else(self):
+        output = io.StringIO()
+        program = parse('If False Then WScript.Echo "no" Else WScript.Echo "yes"')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == 'yes'
+
+    def test_inline_if_does_not_break_block_if(self):
+        """Block If...Then...End If should still work."""
+        program = parse('''
+        If True Then
+            x = 42
+        End If
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 42
+
+    def test_inline_if_does_not_break_block_if_else(self):
+        """Block If...Else...End If should still work."""
+        program = parse('''
+        If False Then
+            x = 1
+        Else
+            x = 2
+        End If
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 2
+
+    def test_inline_if_does_not_break_block_if_elseif(self):
+        """Block If...ElseIf...End If should still work."""
+        program = parse('''
+        Dim n
+        n = 5
+        If n > 10 Then
+            x = "big"
+        ElseIf n > 3 Then
+            x = "medium"
+        Else
+            x = "small"
+        End If
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'medium'
+
+    def test_inline_if_preserves_colon_block_if(self):
+        """Colon-separated block If (with End If) should not be rewritten."""
+        program = parse('If True Then : x = 42 : End If')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 42
+
+    def test_inline_if_in_loop(self):
+        output = io.StringIO()
+        program = parse('''
+        Dim i, total
+        total = 0
+        For i = 1 To 10
+            If i Mod 2 = 0 Then total = total + i
+        Next
+        WScript.Echo total
+        ''')
+        interp = Interpreter(output_stream=output)
+        interp.interpret(program)
+        assert output.getvalue().strip() == '30'
+
+    def test_inline_if_with_function_call(self):
+        program = parse('''
+        Function Double(n)
+            Double = n * 2
+        End Function
+        If True Then x = Double(5)
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 10
+
+    def test_inline_if_with_comment(self):
+        program = parse("If True Then x = 42 ' set x")
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 42
+
+    def test_inline_if_case_insensitive(self):
+        program = parse('IF TRUE THEN x = 1 ELSE x = 2')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 1
+
+    def test_inline_if_nested_in_sub(self):
+        program = parse('''
+        Dim result
+        Sub Check(val)
+            If val > 0 Then result = "positive" Else result = "non-positive"
+        End Sub
+        Call Check(5)
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('result') == 'positive'

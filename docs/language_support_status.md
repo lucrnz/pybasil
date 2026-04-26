@@ -19,7 +19,8 @@
   - `.Property = value` assignment inside With blocks
   - Nested With blocks
 - **Control flow**:
-  - `If ... Then ... ElseIf ... Else ... End If`
+  - `If ... Then ... ElseIf ... Else ... End If` (block form)
+  - `If ... Then statement [Else statement]` (single-line form, with colon-separated statements)
   - `Select Case ... Case ... Case Else ... End Select` (including `Case x To y` ranges and `Case Is > x` comparisons)
   - `For ... To ... [Step ...] ... Next`
   - `For Each ... In ... Next`
