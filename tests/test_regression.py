@@ -54,3 +54,13 @@ class TestRegressionScripts:
         assert interpreter._environment.get('totalCount') == 86
         assert interpreter._environment.get('passCount') == 86
         assert interpreter._environment.get('failCount') == 0
+
+    def test_regression_script_delta_filesystemobject(self):
+        """Scripting.FileSystemObject file system operations."""
+        script = RegressionTestsUtils.load_script('delta-filesystemobject.vbs')
+        program = parse(script)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('totalCount') == 63
+        assert interpreter._environment.get('passCount') == 63
+        assert interpreter._environment.get('failCount') == 0
