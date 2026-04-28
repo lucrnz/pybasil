@@ -61,6 +61,6 @@ class TestRegressionScripts:
         program = parse(script)
         interpreter = Interpreter()
         interpreter.interpret(program)
-        assert interpreter._environment.get('totalCount') == 63
-        assert interpreter._environment.get('passCount') == 63
+        assert interpreter._environment.get('totalCount') == 64
+        assert interpreter._environment.get('passCount') == 64
         assert interpreter._environment.get('failCount') == 0

@@ -411,7 +411,7 @@ class TestFSOGetFileFolder:
         interp = Interpreter()
         interp.interpret(program)
         assert interp._environment.get('name') == tmp_path.name
-        assert interp._environment.get('ftype') == 'File Folder'
+        assert interp._environment.get('ftype') == 'File folder'
 
     def test_getfolder_nonexistent_error(self):
         program = parse('''

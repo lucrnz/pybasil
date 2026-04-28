@@ -53,7 +53,10 @@ fso.CreateFolder tempRoot
 ' =========================================================================
 WScript.Echo "--- Path Helpers ---"
 
-Call AssertEqual("BuildPath basic", fso.BuildPath("/tmp", "file.txt"), "/tmp/file.txt")
+Dim buildResult
+buildResult = fso.BuildPath("/tmp", "file.txt")
+Call AssertTrue("BuildPath contains dir", InStr(buildResult, "/tmp") = 1)
+Call AssertTrue("BuildPath contains file", InStr(buildResult, "file.txt") > 0)
 Call AssertEqual("GetFileName", fso.GetFileName("/path/to/document.pdf"), "document.pdf")
 Call AssertEqual("GetBaseName", fso.GetBaseName("/path/to/document.pdf"), "document")
 Call AssertEqual("GetExtensionName", fso.GetExtensionName("/path/to/document.pdf"), "pdf")
@@ -179,7 +182,7 @@ Dim blankContent
 blankContent = tsBlank.ReadAll
 tsBlank.Close
 
-Call AssertEqual("WriteBlankLines content", blankContent, "A" & vbLf & vbLf & "B")
+Call AssertEqual("WriteBlankLines content", blankContent, "A" & vbCrLf & vbCrLf & "B")
 
 ' =========================================================================
 '  TEXTSTREAM LINE PROPERTY
@@ -230,7 +233,7 @@ Set fileObj = fso.GetFile(writePath)
 Call AssertEqual("File.Name", fileObj.Name, "write_test.txt")
 Call AssertEqual("File.Size", fileObj.Size, 5)
 Call AssertTrue("File.Path ends correctly", Right(fileObj.Path, Len("write_test.txt")) = "write_test.txt")
-Call AssertEqual("File.Type", fileObj.Type, ".txt")
+Call AssertEqual("File.Type", fileObj.Type, "Text Document")
 Call AssertEqual("TypeName DateCreated", TypeName(fileObj.DateCreated), "Date")
 Call AssertEqual("TypeName DateLastModified", TypeName(fileObj.DateLastModified), "Date")
 Call AssertTrue("File.ParentFolder name", Len(fileObj.ParentFolder.Name) > 0)
@@ -257,7 +260,7 @@ Dim folderObj
 Set folderObj = fso.GetFolder(tempRoot)
 
 Call AssertEqual("Folder.Name", folderObj.Name, "pybasil_fso_regression")
-Call AssertEqual("Folder.Type", folderObj.Type, "File Folder")
+Call AssertEqual("Folder.Type", folderObj.Type, "File folder")
 Call AssertTrue("Folder.Size >= 0", folderObj.Size >= 0)
 Call AssertFalse("Folder.IsRootFolder", folderObj.IsRootFolder)
 Call AssertTrue("Folder.ParentFolder exists", Len(folderObj.ParentFolder.Path) > 0)

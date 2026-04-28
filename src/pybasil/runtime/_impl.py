@@ -609,6 +609,51 @@ _ATTR_SYSTEM = 4
 _ATTR_DIRECTORY = 16
 _ATTR_ARCHIVE = 32
 
+# File.Type descriptions matching cscript.exe / Windows Shell
+_FILE_TYPE_MAP: Dict[str, str] = {
+    '.txt': 'Text Document',
+    '.log': 'Text Document',
+    '.ini': 'Configuration settings',
+    '.cfg': 'Configuration Source File',
+    '.csv': 'Comma Separated Values Source File',
+    '.xml': 'XML Source File',
+    '.json': 'JSON Source File',
+    '.yaml': 'Yaml Source File',
+    '.yml': 'Yaml Source File',
+    '.sql': 'SQL Source File',
+    '.md': 'Markdown Source File',
+    '.rtf': 'RTF File',
+    '.htm': 'HTML Document',
+    '.html': 'HTML Document',
+    '.bat': 'Windows Batch File',
+    '.cmd': 'Windows Command Script',
+    '.vbs': 'VBScript Script File',
+    '.js': 'JSFile',
+    '.exe': 'Application',
+    '.dll': 'Application extension',
+    '.sys': 'System file',
+    '.reg': 'Registration Entries',
+    '.zip': 'Compressed (zipped) Folder',
+    '.py': 'Python Source File',
+    '.rb': 'Ruby Source File',
+    '.pl': 'Perl Source File',
+    '.sh': 'SH Source File',
+    '.c': 'C Source File',
+    '.cpp': 'C++ Source File',
+    '.h': 'C Header Source File',
+    '.cs': 'C# Source File',
+    '.java': 'Java Source File',
+}
+
+
+def _file_type_description(ext: str) -> str:
+    if not ext:
+        return 'File'
+    desc = _FILE_TYPE_MAP.get(ext.lower())
+    if desc:
+        return desc
+    return ext.lstrip('.').upper() + ' File'
+
 
 class VBScriptTextStream(VBScriptObject):
     """TextStream object for reading/writing text files."""
@@ -670,7 +715,7 @@ class VBScriptTextStream(VBScriptObject):
         if self._mode == _FOR_READING:
             raise VBScriptError('Bad file mode')
         s = str(text) if not isinstance(text, str) else text
-        self._handle.write(s + '\n')
+        self._handle.write(s + '\r\n')
         self._line += 1
         self._column = 1
 
@@ -679,7 +724,7 @@ class VBScriptTextStream(VBScriptObject):
         if self._mode == _FOR_READING:
             raise VBScriptError('Bad file mode')
         for _ in range(int(lines)):
-            self._handle.write('\n')
+            self._handle.write('\r\n')
         self._line += int(lines)
         self._column = 1
 
@@ -766,7 +811,7 @@ class VBScriptFile(VBScriptObject):
     @property
     def Type(self) -> str:
         _, ext = os.path.splitext(self._path)
-        return ext if ext else 'File'
+        return _file_type_description(ext)
 
     @property
     def DateCreated(self) -> 'VBScriptDate':
@@ -814,11 +859,11 @@ class VBScriptFile(VBScriptObject):
 
     def OpenAsTextStream(self, iomode: int = _FOR_READING, _format: int = _TRISTATE_FALSE) -> VBScriptTextStream:
         if iomode == _FOR_READING:
-            fh = open(self._path, 'r', encoding='utf-8')
+            fh = open(self._path, 'r', encoding='utf-8', newline='')
         elif iomode == _FOR_WRITING:
-            fh = open(self._path, 'w', encoding='utf-8')
+            fh = open(self._path, 'w', encoding='utf-8', newline='')
         elif iomode == _FOR_APPENDING:
-            fh = open(self._path, 'a', encoding='utf-8')
+            fh = open(self._path, 'a', encoding='utf-8', newline='')
         else:
             raise VBScriptError('Bad file mode')
         return VBScriptTextStream(fh, iomode)
@@ -866,7 +911,7 @@ class VBScriptFolder(VBScriptObject):
 
     @property
     def Type(self) -> str:
-        return 'File Folder'
+        return 'File folder'
 
     @property
     def DateCreated(self) -> 'VBScriptDate':
@@ -924,7 +969,7 @@ class VBScriptFolder(VBScriptObject):
         path = os.path.join(self._path, filename)
         if not overwrite and os.path.exists(path):
             raise VBScriptError('File already exists')
-        fh = open(path, 'w', encoding='utf-8')
+        fh = open(path, 'w', encoding='utf-8', newline='')
         return VBScriptTextStream(fh, _FOR_WRITING)
 
 
@@ -1115,7 +1160,7 @@ class VBScriptFileSystemObject(VBScriptObject):
         path = str(filename)
         if not overwrite and os.path.exists(path):
             raise VBScriptError('File already exists')
-        fh = open(path, 'w', encoding='utf-8')
+        fh = open(path, 'w', encoding='utf-8', newline='')
         return VBScriptTextStream(fh, _FOR_WRITING)
 
     def OpenTextFile(self, filename: str, iomode: int = _FOR_READING, create: bool = False, _format: int = _TRISTATE_FALSE) -> VBScriptTextStream:
@@ -1124,14 +1169,14 @@ class VBScriptFileSystemObject(VBScriptObject):
         if mode == _FOR_READING:
             if not os.path.exists(path):
                 if create:
-                    open(path, 'w', encoding='utf-8').close()
+                    open(path, 'w', encoding='utf-8', newline='').close()
                 else:
                     raise VBScriptError('File not found')
-            fh = open(path, 'r', encoding='utf-8')
+            fh = open(path, 'r', encoding='utf-8', newline='')
         elif mode == _FOR_WRITING:
-            fh = open(path, 'w', encoding='utf-8')
+            fh = open(path, 'w', encoding='utf-8', newline='')
         elif mode == _FOR_APPENDING:
-            fh = open(path, 'a', encoding='utf-8')
+            fh = open(path, 'a', encoding='utf-8', newline='')
         else:
             raise VBScriptError('Bad file mode')
         return VBScriptTextStream(fh, mode)
