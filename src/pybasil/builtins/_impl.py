@@ -22,7 +22,7 @@ from typing import Any, TYPE_CHECKING
 
 from lark.exceptions import UnexpectedInput
 
-from .runtime import (
+from ..runtime import (
     VBScriptError,
     VBScriptObject,
     VBScriptNothing,
@@ -37,7 +37,7 @@ from .runtime import (
 )
 
 if TYPE_CHECKING:
-    from .interpreter import Interpreter
+    from ..interpreter import Interpreter
 
 
 # ---------------------------------------------------------------------------
@@ -736,7 +736,7 @@ def builtin_timeserial(interp: Interpreter, hour: Any, minute: Any, second: Any)
     m = int(interp._to_number(minute))
     s = int(interp._to_number(second))
     total_seconds = h * 3600 + m * 60 + s
-    from .runtime import _SECONDS_PER_DAY
+    from ..runtime import _SECONDS_PER_DAY
     return VBScriptDate(total_seconds / _SECONDS_PER_DAY)
 
 
@@ -960,7 +960,7 @@ def builtin_array(interp: Interpreter, *args: Any) -> VBScriptArray:
 # ---------------------------------------------------------------------------
 
 def _parse_dynamic_program(source: str):
-    from .parser import parse as vbs_parse
+    from ..parser import parse as vbs_parse
 
     try:
         return vbs_parse(source)
@@ -970,7 +970,7 @@ def _parse_dynamic_program(source: str):
 
 def builtin_eval(interp: 'Interpreter', expr_string: Any) -> Any:
     """Eval function - evaluate a VBScript expression string and return its value."""
-    from .ast_nodes import AssignmentStatement
+    from ..ast_nodes import AssignmentStatement
 
     code_str = interp._to_string(expr_string)
     wrapper = f"__pybasil_eval__ = {code_str}"

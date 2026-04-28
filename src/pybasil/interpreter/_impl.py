@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 from typing import Any, Callable, Dict, List, Union
 
-from .ast_nodes import (
+from ..ast_nodes import (
     ASTNode,
     Program,
     NumberLiteral,
@@ -75,7 +75,7 @@ from .ast_nodes import (
     ReDimStatement,
     EraseStatement,
 )
-from .runtime import (
+from ..runtime import (
     VBScriptError,
     VBScriptObject,
     VBScriptNothing,
@@ -102,7 +102,7 @@ from .runtime import (
     Procedure,
     Environment,
 )
-from .builtins import get_builtin_table
+from ..builtins import get_builtin_table
 
 # ---------------------------------------------------------------------------
 #  VBScript built-in constants (VBScript 6.0)
@@ -2195,7 +2195,7 @@ class Interpreter:
 
 def run(source: str, output_stream=None) -> Any:
     """Parse and execute VBScript source code."""
-    from .parser import parse
+    from ..parser import parse
 
     program = parse(source)
     interpreter = Interpreter(output_stream=output_stream)
