@@ -14,17 +14,24 @@ uv add pybasil
 
 ## Quick Start
 
+### Clone the repo
+
+```bash
+git clone https://github.com/lucrnz/pybasil.git
+cd pybasil
+```
+
 ### Command Line Usage
 
 ```bash
 # Run a VBScript file
-pybasil script.vbs
+uv run pybasil script.vbs
 
 # Pipe VBScript code
-echo 'WScript.Echo "Hello, World!"' | pybasil
+echo 'WScript.Echo "Hello, World!"' | uv run pybasil
 
 # Execute code directly
-pybasil -c 'WScript.Echo 2 + 2'
+uv run pybasil -c 'WScript.Echo 2 + 2'
 ```
 
 ## API Reference
