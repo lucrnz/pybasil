@@ -97,6 +97,11 @@ class NullLiteral(ASTNode):
     pass
 
 
+@dataclass
+class DateLiteral(ASTNode):
+    value: str
+
+
 # Expressions
 @dataclass
 class Identifier(ASTNode):
@@ -472,6 +477,7 @@ Expression = Union[
     NothingLiteral,
     EmptyLiteral,
     NullLiteral,
+    DateLiteral,
     Identifier,
     BinaryExpression,
     UnaryExpression,

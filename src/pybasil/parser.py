@@ -17,6 +17,7 @@ from .ast_nodes import (
     NothingLiteral,
     EmptyLiteral,
     NullLiteral,
+    DateLiteral,
     Identifier,
     BinaryExpression,
     UnaryExpression,
@@ -436,6 +437,10 @@ class VBScriptTransformer(Transformer):
         value = token.value[1:-1].replace('""', '"')
         return StringLiteral(value=value)
 
+    def DATE_LITERAL(self, token: Token) -> DateLiteral:
+        # Strip the surrounding # delimiters
+        return DateLiteral(value=token.value[1:-1])
+
     def true_literal(self, items: List) -> BooleanLiteral:
         return BooleanLiteral(value=True)
 
@@ -755,6 +760,7 @@ class VBScriptTransformer(Transformer):
             NothingLiteral,
             EmptyLiteral,
             NullLiteral,
+            DateLiteral,
             Identifier,
             BinaryExpression,
             UnaryExpression,

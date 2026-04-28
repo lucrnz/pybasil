@@ -66,7 +66,10 @@ def builtin_len(interp: Interpreter, value: Any) -> int:
     """Len function."""
     if isinstance(value, str):
         return len(value)
-    raise VBScriptError('Type mismatch: Len requires a string')
+    if isinstance(value, VBScriptNull):
+        from ..runtime import NULL
+        return NULL
+    return len(interp._to_string(value))
 
 
 def builtin_left(interp: Interpreter, string: str, length: int) -> str:
@@ -329,8 +332,10 @@ def builtin_hex(interp: Interpreter, number: Any) -> str:
     """Hex function - convert number to hex string."""
     n = int(interp._to_number(number))
     if n < 0:
-        # VBScript returns unsigned hex for negative numbers (32-bit)
-        n = n & 0xFFFFFFFF
+        if -32767 <= n <= 32767:
+            n = n & 0xFFFF
+        else:
+            n = n & 0xFFFFFFFF
     return format(n, 'X')
 
 
@@ -437,14 +442,7 @@ def builtin_isnull(interp: Interpreter, value: Any) -> bool:
 
 def builtin_isobject(interp: Interpreter, value: Any) -> bool:
     """IsObject function."""
-    return (
-        isinstance(value, (WScriptObject, VBScriptObject))
-        or value is not None
-        and not isinstance(
-            value,
-            (str, int, float, bool, VBScriptEmpty, VBScriptNull, VBScriptNothing),
-        )
-    )
+    return isinstance(value, (WScriptObject, VBScriptObject, VBScriptNothing, VBScriptDictionary))
 
 
 def builtin_typename(interp: Interpreter, value: Any) -> str:
@@ -464,7 +462,9 @@ def builtin_typename(interp: Interpreter, value: Any) -> str:
     if isinstance(value, bool):
         return 'Boolean'
     if isinstance(value, int):
-        return 'Integer'
+        if -32767 <= value <= 32767:
+            return 'Integer'
+        return 'Long'
     if isinstance(value, float):
         return 'Double'
     if isinstance(value, str):
@@ -492,6 +492,8 @@ def builtin_vartype(interp: Interpreter, value: Any) -> int:
         return 8  # vbString
     if isinstance(value, (VBScriptArray, list, tuple)):
         return 8204  # vbArray + vbVariant
+    if isinstance(value, (VBScriptNothing, VBScriptDictionary, VBScriptClassInstance, VBScriptObject, WScriptObject)):
+        return 9  # vbObject
     return 12  # vbVariant
 
 
@@ -520,8 +522,12 @@ def builtin_fix(interp: Interpreter, value: Any) -> int:
 
 
 def builtin_round(interp: Interpreter, value: Any, decimals: int = 0) -> float:
-    """Round function."""
-    return round(interp._to_number(value), int(decimals))
+    """Round function using Decimal to match VBScript banker's rounding."""
+    from decimal import Decimal, ROUND_HALF_EVEN
+    n = interp._to_number(value)
+    d = int(decimals)
+    result = Decimal(str(n)).quantize(Decimal(10) ** -d, rounding=ROUND_HALF_EVEN)
+    return int(result) if d == 0 else float(result)
 
 
 def builtin_rnd(interp: Interpreter, number: float = 1) -> float:

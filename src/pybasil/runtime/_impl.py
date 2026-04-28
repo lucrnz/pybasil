@@ -1422,8 +1422,9 @@ class ErrObject:
 class WScriptObject:
     """Simulates the WScript object for VBScript."""
 
-    def __init__(self, output_stream=None):
+    def __init__(self, output_stream=None, resolve_default=None):
         self._output = output_stream or sys.stdout
+        self._resolve_default = resolve_default
 
     def Echo(self, *args: Any) -> None:
         """WScript.Echo implementation - prints to stdout."""
@@ -1435,10 +1436,13 @@ class WScriptObject:
 
     def _format_value(self, value: Any) -> str:
         """Format a value for output."""
+        # Resolve default member for class instances via callback
+        if isinstance(value, VBScriptClassInstance) and self._resolve_default:
+            value = self._resolve_default(value)
         if value is True:
-            return 'True'
+            return '-1'
         elif value is False:
-            return 'False'
+            return '0'
         elif isinstance(value, VBScriptDate):
             return str(value)
         elif isinstance(value, VBScriptNothing):
@@ -1454,7 +1458,7 @@ class WScriptObject:
         elif isinstance(value, float):
             if value.is_integer():
                 return str(int(value))
-            return str(value)
+            return f'{value:.15g}'
         else:
             return str(value)
 

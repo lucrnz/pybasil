@@ -25,6 +25,7 @@ from ..ast_nodes import (
     NothingLiteral,
     EmptyLiteral,
     NullLiteral,
+    DateLiteral,
     Identifier,
     BinaryExpression,
     UnaryExpression,
@@ -105,7 +106,7 @@ from ..runtime import (
 from ..builtins import get_builtin_table
 
 # ---------------------------------------------------------------------------
-#  VBScript built-in constants (VBScript 6.0)
+#  VBScript built-in constants (VBScript 5.8)
 # ---------------------------------------------------------------------------
 
 VBSCRIPT_CONSTANTS: Dict[str, Any] = {
@@ -223,7 +224,7 @@ class Interpreter:
     def _setup_builtins(self) -> None:
         """Set up built-in objects and functions."""
         # Create WScript object
-        wscript = WScriptObject(self._output_stream)
+        wscript = WScriptObject(self._output_stream, resolve_default=self._resolve_default_member)
         self._environment.define('WScript', wscript)
 
         # Create Err object
@@ -235,6 +236,23 @@ class Interpreter:
 
         # Built-in functions (defined in builtins.py)
         self._builtins: Dict[str, Callable] = get_builtin_table(self)
+
+    def _resolve_default_member(self, instance: VBScriptClassInstance) -> Any:
+        """Resolve the default member of a class instance for display."""
+        class_def = instance._class_def
+        if class_def.default_member:
+            default_name = class_def.default_member
+            prop = class_def.properties.get(default_name)
+            if prop is not None and prop.get_body is not None:
+                return self._call_class_property_get(
+                    instance, prop, prop_name=default_name,
+                )
+            method_def = class_def.methods.get(default_name)
+            if method_def is not None:
+                return self._call_class_method(
+                    instance, method_def.proc, [], args_evaluated=True,
+                )
+        return instance
 
     def interpret(self, program: Program) -> Any:
         """Interpret a VBScript program."""
@@ -290,6 +308,10 @@ class Interpreter:
             return 438  # Object doesn't support this property or method
         elif 'Subscript out of range' in msg:
             return 9  # Subscript out of range
+        elif 'Illegal assignment' in msg:
+            return 501  # Illegal assignment
+        elif 'Variable is undefined' in msg:
+            return 500  # Variable is undefined
         elif 'Syntax error' in msg:
             return 1002  # Syntax error
         return 1000  # Generic runtime error
@@ -359,6 +381,7 @@ class Interpreter:
         NothingLiteral: '_evaluate_NothingLiteral',
         EmptyLiteral: '_evaluate_EmptyLiteral',
         NullLiteral: '_evaluate_NullLiteral',
+        DateLiteral: '_evaluate_DateLiteral',
         Identifier: '_evaluate_Identifier',
         BinaryExpression: '_evaluate_BinaryExpression',
         UnaryExpression: '_evaluate_UnaryExpression',
@@ -739,26 +762,51 @@ class Interpreter:
         # Handle misparse of implicit call with unary minus/plus argument.
         # The parser sees "WScript.Echo -1" as BinaryExpression(SUB,
         # MemberAccess(WScript, Echo), 1) instead of a method call with
-        # argument -1.  Re-interpret as MethodCall when the left operand
-        # is a MemberAccess or DotAccess (i.e. looks like a callable).
+        # argument -1.  "WScript.Echo -5+3" becomes a chain of ADD/SUB
+        # with the MemberAccess buried on the left.  Unroll the chain to
+        # reconstruct the single argument expression.
         if isinstance(node.expression, BinaryExpression) and node.expression.operator in (BinaryOp.ADD, BinaryOp.SUB):
-            left = node.expression.left
-            if isinstance(left, MemberAccess):
-                arg = node.expression.right
-                if node.expression.operator == BinaryOp.SUB:
-                    arg = UnaryExpression(operator=UnaryOp.NEG, operand=arg)
-                rewritten = MethodCall(
-                    object=left.object, method=left.member, arguments=[arg]
-                )
-                return self._evaluate(rewritten)
-            if isinstance(left, DotAccess):
-                if not self._with_stack:
+            # Collect the chain: walk left while we see ADD/SUB
+            chain: list[tuple[BinaryOp, ASTNode]] = []
+            cur = node.expression
+            while isinstance(cur, BinaryExpression) and cur.operator in (BinaryOp.ADD, BinaryOp.SUB):
+                chain.append((cur.operator, cur.right))
+                cur = cur.left
+            # cur is now the leftmost node; chain is in reverse order
+            if isinstance(cur, (MemberAccess, DotAccess)):
+                if isinstance(cur, DotAccess) and not self._with_stack:
                     raise VBScriptError('Invalid use of dot access outside With block')
-                arg = node.expression.right
-                if node.expression.operator == BinaryOp.SUB:
-                    arg = UnaryExpression(operator=UnaryOp.NEG, operand=arg)
+                # Rebuild the argument expression from the chain (reversed)
+                first_op, first_right = chain[-1]
+                if first_op == BinaryOp.SUB:
+                    arg = UnaryExpression(operator=UnaryOp.NEG, operand=first_right)
+                else:
+                    arg = first_right
+                for op, right in reversed(chain[:-1]):
+                    arg = BinaryExpression(left=arg, operator=op, right=right)
+                if isinstance(cur, MemberAccess):
+                    rewritten = MethodCall(
+                        object=cur.object, method=cur.member, arguments=[arg]
+                    )
+                else:
+                    rewritten = MethodCall(
+                        object=cur, method=cur.member, arguments=[arg]
+                    )
+                return self._evaluate(rewritten)
+
+        # Handle misparse of "WScript.Echo (-2) ^ 3" which parses as
+        # BinaryExpression(POW, MethodCall(WScript, Echo, [-2]), 3).
+        # Rewrite as MethodCall with the full binary expression as argument.
+        if isinstance(node.expression, BinaryExpression) and node.expression.operator not in (BinaryOp.ADD, BinaryOp.SUB):
+            left = node.expression.left
+            if isinstance(left, MethodCall) and len(left.arguments) == 1:
+                arg = BinaryExpression(
+                    left=left.arguments[0],
+                    operator=node.expression.operator,
+                    right=node.expression.right,
+                )
                 rewritten = MethodCall(
-                    object=left, method=left.member, arguments=[arg]
+                    object=left.object, method=left.method, arguments=[arg]
                 )
                 return self._evaluate(rewritten)
 
@@ -932,8 +980,7 @@ class Interpreter:
         if node.step:
             step_val = self._to_number(self._evaluate(node.step))
         else:
-            # Default step is 1, or -1 if start > end
-            step_val = 1 if start_val <= end_val else -1
+            step_val = 1
 
         # Set the loop variable to start value
         self._environment.set(node.variable, start_val)
@@ -1422,6 +1469,10 @@ class Interpreter:
         """Evaluate a Null literal."""
         return NULL
 
+    def _evaluate_DateLiteral(self, node: DateLiteral) -> VBScriptDate:
+        """Evaluate a date literal like #1/15/2024#."""
+        return VBScriptDate.from_string(node.value)
+
     def _evaluate_Identifier(self, node: Identifier) -> Any:
         """Evaluate an identifier.
 
@@ -1544,7 +1595,8 @@ class Interpreter:
             elif attr_name == 'remove':
                 return obj.Remove
             elif attr_name == 'removeall':
-                return obj.RemoveAll
+                obj.RemoveAll()
+                return None
             elif attr_name == 'item':
                 # Item is the default property - return a callable wrapper
                 return _DictItemAccessor(obj)
@@ -1919,20 +1971,24 @@ class Interpreter:
         return self._to_number(left) ** self._to_number(right)
 
     def _binop_concat(self, left: Any, right: Any) -> Any:
-        return self._to_string(left) + self._to_string(right)
+        if isinstance(left, VBScriptNull) and isinstance(right, VBScriptNull):
+            return NULL
+        lv = '' if isinstance(left, VBScriptNull) else self._to_string(left)
+        rv = '' if isinstance(right, VBScriptNull) else self._to_string(right)
+        return lv + rv
 
     def _binop_xor(self, left: Any, right: Any) -> Any:
         return int(self._to_number(left)) ^ int(self._to_number(right))
 
     def _binop_eqv(self, left: Any, right: Any) -> Any:
-        if _is_numeric_not_bool(left) and _is_numeric_not_bool(right):
-            return ~(int(left) ^ int(right))
-        return not (self._to_boolean(left) ^ self._to_boolean(right))
+        lv = int(self._to_number(left))
+        rv = int(self._to_number(right))
+        return ~(lv ^ rv)
 
     def _binop_imp(self, left: Any, right: Any) -> Any:
-        if _is_numeric_not_bool(left) and _is_numeric_not_bool(right):
-            return (~int(left)) | int(right)
-        return (not self._to_boolean(left)) or self._to_boolean(right)
+        lv = int(self._to_number(left))
+        rv = int(self._to_number(right))
+        return (~lv) | rv
 
     _BINOP_DISPATCH_NAMES = {
         BinaryOp.ADD: '_add',
@@ -1988,9 +2044,9 @@ class Interpreter:
         elif isinstance(right, VBScriptEmpty):
             right = 0 if isinstance(left, (int, float)) else ''
 
-        # Handle Null propagation (AND/OR have their own Null logic)
+        # Handle Null propagation (AND/OR have their own Null logic; CONCAT treats Null as "")
         if isinstance(left, VBScriptNull) or isinstance(right, VBScriptNull):
-            if op is not BinaryOp.AND and op is not BinaryOp.OR:
+            if op is not BinaryOp.AND and op is not BinaryOp.OR and op is not BinaryOp.CONCAT:
                 return NULL
 
         handler = self._binop_dispatch.get(op)
@@ -2007,7 +2063,13 @@ class Interpreter:
         elif op == UnaryOp.NOT:
             if isinstance(operand, VBScriptNull):
                 return NULL
-            return not self._to_boolean(operand)
+            if isinstance(operand, bool):
+                return ~(-1 if operand else 0)
+            if isinstance(operand, int):
+                return ~operand
+            if isinstance(operand, float):
+                return ~int(operand)
+            return ~(-1 if self._to_boolean(operand) else 0)
         else:
             raise VBScriptError(f'Unknown unary operator: {op}')
 
@@ -2096,10 +2158,12 @@ class Interpreter:
             return False if not self._to_boolean(right) else NULL
         if isinstance(right, VBScriptNull):
             return False if not self._to_boolean(left) else NULL
-        # VBScript uses bitwise AND for numbers
-        if _is_numeric_not_bool(left) and _is_numeric_not_bool(right):
-            return int(left) & int(right)
-        return self._to_boolean(left) and self._to_boolean(right)
+        # VBScript uses bitwise AND for numbers and booleans
+        if isinstance(left, (int, float)) or isinstance(right, (int, float)) or isinstance(left, bool) or isinstance(right, bool):
+            lv = int(self._to_number(left))
+            rv = int(self._to_number(right))
+            return lv & rv
+        return int(self._to_boolean(left)) & int(self._to_boolean(right))
 
     def _logical_or(self, left: Any, right: Any) -> Any:
         """Logical OR with VBScript semantics including Null propagation."""
@@ -2109,10 +2173,12 @@ class Interpreter:
             return True if self._to_boolean(right) else NULL
         if isinstance(right, VBScriptNull):
             return True if self._to_boolean(left) else NULL
-        # VBScript uses bitwise OR for numbers
-        if _is_numeric_not_bool(left) and _is_numeric_not_bool(right):
-            return int(left) | int(right)
-        return self._to_boolean(left) or self._to_boolean(right)
+        # VBScript uses bitwise OR for numbers and booleans
+        if isinstance(left, (int, float)) or isinstance(right, (int, float)) or isinstance(left, bool) or isinstance(right, bool):
+            lv = int(self._to_number(left))
+            rv = int(self._to_number(right))
+            return lv | rv
+        return int(self._to_boolean(left)) | int(self._to_boolean(right))
 
     # ------------------------------------------------------------------
     #  Coercion helpers
@@ -2156,7 +2222,7 @@ class Interpreter:
         if isinstance(value, float):
             if value.is_integer():
                 return str(int(value))
-            return str(value)
+            return f'{value:.15g}'
         if isinstance(value, VBScriptDate):
             return str(value)
         if isinstance(value, VBScriptEmpty):
@@ -2165,6 +2231,10 @@ class Interpreter:
             return 'Null'
         if isinstance(value, VBScriptNothing):
             return 'Nothing'
+        if isinstance(value, VBScriptClassInstance):
+            resolved = self._resolve_default_member(value)
+            if resolved is not value:
+                return self._to_string(resolved)
         return str(value)
 
     def _to_boolean(self, value: Any) -> bool:

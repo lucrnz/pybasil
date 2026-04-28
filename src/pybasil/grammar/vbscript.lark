@@ -270,6 +270,7 @@ arg_list: expression ("," expression)*
         | HEX_LITERAL
         | OCT_LITERAL
         | STRING
+        | DATE_LITERAL
         | TRUE_KW      -> true_literal
         | FALSE_KW     -> false_literal
         | NOTHING_KW   -> nothing_literal
@@ -354,6 +355,7 @@ SLASH: "/"
 BACKSLASH: "\\"
 COLON: ":"
 STRING: /"(""|[^"])*"/
+DATE_LITERAL.3: /#[^#]+#/
 HEX_LITERAL.3: /&[Hh][0-9A-Fa-f]+&?/
 OCT_LITERAL.3: /&[Oo][0-7]+&?/
 NUMBER: /\d+(\.\d+)?([eE][+-]?\d+)?/
