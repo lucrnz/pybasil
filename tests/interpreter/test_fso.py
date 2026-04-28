@@ -569,7 +569,7 @@ class TestFSOIntegration:
         interp = Interpreter(output_stream=output)
         interp.interpret(program)
         lines = output.getvalue().strip().split('\n')
-        assert lines == ['Hello', 'World', 'False']
+        assert lines == ['Hello', 'World', '0']
 
     def test_folder_with_files(self, tmp_path):
         folder = tmp_path / "test_dir"

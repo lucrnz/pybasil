@@ -263,7 +263,7 @@ class TestInterpreterForStatement:
         interpreter.interpret(program)
         assert interpreter._environment.exists('i')
 
-    def test_for_default_step_countdown(self):
+    def test_for_default_step_no_countdown(self):
         output = io.StringIO()
         run(
             """
@@ -273,8 +273,7 @@ class TestInterpreterForStatement:
         """,
             output_stream=output,
         )
-        lines = output.getvalue().strip().split('\n')
-        assert lines == ['5', '4', '3', '2', '1']
+        assert output.getvalue().strip() == ''
 
     def test_for_default_step_countdown_single(self):
         output = io.StringIO()

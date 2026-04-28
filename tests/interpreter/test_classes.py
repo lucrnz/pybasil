@@ -244,7 +244,7 @@ class TestInterpreterClass:
             WScript.Echo v.IsPositive(-3)
         ''', output_stream=output)
         lines = output.getvalue().strip().split('\n')
-        assert lines == ['True', 'False']
+        assert lines == ['-1', '0']
 
     def test_class_with_array_field(self):
         output = io.StringIO()

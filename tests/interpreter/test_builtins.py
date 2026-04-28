@@ -450,6 +450,116 @@ class TestNumericFastPaths:
         interp.interpret(program)
         assert interp._environment.get('x') == 7
 
+class TestCscriptCompatibility:
+    """Tests for cscript compatibility fixes."""
+
+    def test_len_number(self):
+        program = parse('x = Len(12345)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 5
+
+    def test_typename_long(self):
+        program = parse('x = TypeName(100000)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'Long'
+
+    def test_typename_integer(self):
+        program = parse('x = TypeName(42)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'Integer'
+
+    def test_vartype_nothing(self):
+        program = parse('x = VarType(Nothing)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 9
+
+    def test_vartype_dictionary(self):
+        program = parse('''
+        Set d = CreateObject("Scripting.Dictionary")
+        x = VarType(d)
+        ''')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 9
+
+    def test_isobject_nothing(self):
+        program = parse('x = IsObject(Nothing)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') is True
+
+    def test_hex_negative_one_integer_range(self):
+        program = parse('x = Hex(-1)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'FFFF'
+
+    def test_hex_negative_long_range(self):
+        program = parse('x = Hex(-40000)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'FFFF63C0'
+
+    def test_round_banker(self):
+        program = parse('x = Round(2.55, 1)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 2.6
+
+    def test_cstr_boolean(self):
+        program = parse('x = CStr(True)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 'True'
+
+    def test_dict_removeall(self):
+        output = io.StringIO()
+        run('''
+        Set d = CreateObject("Scripting.Dictionary")
+        d.Add "a", 1
+        d.Add "b", 2
+        d.RemoveAll
+        WScript.Echo d.Count
+        ''', output_stream=output)
+        assert output.getvalue().strip() == '0'
+
+    def test_for_no_step_no_countdown(self):
+        output = io.StringIO()
+        run('''
+        Dim s
+        s = ""
+        For i = 5 To 1
+            s = s & i
+        Next
+        WScript.Echo s
+        ''', output_stream=output)
+        assert output.getvalue().strip() == ''
+
+    def test_error_number_const_reassign(self):
+        output = io.StringIO()
+        run('''
+        On Error Resume Next
+        Const X = 42
+        X = 99
+        WScript.Echo Err.Number
+        ''', output_stream=output)
+        assert output.getvalue().strip() == '501'
+
+    def test_error_number_undefined_var(self):
+        output = io.StringIO()
+        run('''
+        Option Explicit
+        On Error Resume Next
+        y = 42
+        WScript.Echo Err.Number
+        ''', output_stream=output)
+        assert output.getvalue().strip() == '500'
+
+
 class TestEmptyParensCalls:
     """Tests for zero-argument calls with empty parentheses."""
 

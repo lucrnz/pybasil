@@ -276,7 +276,7 @@ class TestDynamicCodeErrorHandling:
             ]),
             output_stream=output,
         )
-        assert output.getvalue().strip().split('\n') == ['1002', 'True']
+        assert output.getvalue().strip().split('\n') == ['1002', '-1']
 
 
     @pytest.mark.parametrize('statement', ['x = Execute("y = 1")', 'x = ExecuteGlobal("y = 1")'])
@@ -358,7 +358,7 @@ class TestDynamicCodeErrorHandling:
             ]),
             output_stream=output,
         )
-        assert output.getvalue().strip() == 'True'
+        assert output.getvalue().strip() == '-1'
 
 class TestErrNotClearedInDefaultMode:
     """Test that Err is not cleared before every statement in DEFAULT mode."""

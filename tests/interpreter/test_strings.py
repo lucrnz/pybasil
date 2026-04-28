@@ -328,7 +328,7 @@ class TestStringFunctionsHexOct:
         program = parse('x = Hex(-1)')
         interp = Interpreter()
         interp.interpret(program)
-        assert interp._environment.get('x') == 'FFFFFFFF'
+        assert interp._environment.get('x') == 'FFFF'
 
     def test_oct_negative(self):
         program = parse('x = Oct(-1)')

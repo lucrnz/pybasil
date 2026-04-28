@@ -237,7 +237,7 @@ class TestDateTimeValueFunctions:
         ''')
         interp = Interpreter()
         interp.interpret(program)
-        assert interp._environment.get('result') is True
+        assert interp._environment.get('result') == -1
 
     def test_timevalue_strips_date(self):
         program = parse('''
@@ -697,7 +697,7 @@ class TestDateTimeIntegration:
         ''')
         interp = Interpreter()
         interp.interpret(program)
-        assert interp._environment.get('result') is True
+        assert interp._environment.get('result') == -1
 
     def test_all_month_names(self):
         output = io.StringIO()
@@ -728,3 +728,37 @@ class TestDateTimeIntegration:
         interp = Interpreter(output_stream=output)
         interp.interpret(program)
         assert output.getvalue().strip() == 'Sun,Mon,Tue,Wed,Thu,Fri,Sat'
+
+
+class TestDateLiterals:
+    """Test date literal syntax (#date#)."""
+
+    def test_date_literal_year(self):
+        program = parse('x = Year(#1/15/2024#)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 2024
+
+    def test_date_literal_month(self):
+        program = parse('x = Month(#1/15/2024#)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 1
+
+    def test_date_literal_day(self):
+        program = parse('x = Day(#1/15/2024#)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 15
+
+    def test_date_literal_weekday(self):
+        program = parse('x = Weekday(#1/15/2024#)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 2
+
+    def test_date_literal_in_expression(self):
+        program = parse('x = Year(#6/15/2025#) - Year(#1/1/2020#)')
+        interp = Interpreter()
+        interp.interpret(program)
+        assert interp._environment.get('x') == 5
