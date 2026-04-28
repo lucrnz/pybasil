@@ -1,5 +1,5 @@
 # AGENTS.md
-This repository is a Python implementation of a VBScript parser and tree-walking interpreter, that aims to be fully compatible with VBScript 6.0
+This repository is a Python implementation of a VBScript parser and tree-walking interpreter, that aims to be fully compatible with VBScript 5.8
 
 ## Commands
 Install dependencies: `uv sync`

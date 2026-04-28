@@ -1,18 +1,18 @@
 # Language Support Status
 
-- **Tree-walking interpreter** targeting full VBScript 6.0 compatibility
+- **Tree-walking interpreter** targeting full VBScript 5.8 compatibility
 - **Option Explicit**: enforces `Dim`/`Const` declarations before use
 - **Variables & literals**:
   - Variables are case-insensitive
   - Implicit variable creation is supported (`Empty` default)
   - `Dim` declarations (single and multiple variables)
-  - Literals: numbers (including scientific notation), hex (`&HFF`), octal (`&O77`), strings, booleans, `Nothing`, `Empty`, `Null`
+  - Literals: numbers (including scientific notation), hex (`&HFF`), octal (`&O77`), strings, booleans, date (`#1/15/2024#`), `Nothing`, `Empty`, `Null`
 - **Statements**: `Dim`, `Const`, assignments (`Let` optional), `Set`, `Call`, property assignments (`obj.Prop = value`), and expression statements (for things like `WScript.Echo`)
 - **Operators**:
   - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
   - String: `&`
   - Comparison: `=`, `<>`, `<`, `>`, `<=`, `>=`, `Is`
-  - Logical: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp`
+  - Logical/bitwise: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp` (bitwise semantics matching VBScript — `Not` returns bitwise complement, `And`/`Or` on booleans return integers)
 - **With blocks**:
   - `With obj ... End With` - execute statements against an object
   - `.Property` access and `.Method(args)` calls inside With blocks
@@ -85,3 +85,23 @@
   - Misc: `vbObjectError`, `vbGeneralDate`, `vbLongDate`, `vbShortDate`, `vbLongTime`, `vbShortTime`
 - **Comments**: single quote (`'`) and `Rem`
 - **CLI**: execute code from files, stdin, or `-c/--code`
+
+## cscript Compatibility
+
+Tested against 243 test cases comparing output with cscript.exe (VBScript 5.8, Windows 11).
+
+Key compatibility behaviors:
+- `WScript.Echo` displays booleans as `-1`/`0` (matching VBScript's integer representation)
+- `CStr(True)` returns `"True"` (string conversion uses word form)
+- `Not` operator is bitwise complement (e.g., `Not 1` → `-2`)
+- `And`/`Or`/`Eqv`/`Imp` use bitwise integer semantics on all numeric/boolean operands
+- `Null & "str"` yields `"str"` (Null treated as empty string in concatenation)
+- Float display uses 15 significant digits matching VBScript's Double precision
+- `Hex(-1)` returns `FFFF` (16-bit for Integer-range values)
+- `TypeName` distinguishes `Integer` (-32768..32767) from `Long`
+- `VarType` returns `9` (vbObject) for `Nothing`, Dictionary, and class instances
+- `IsObject(Nothing)` returns `True`
+- `Len()` accepts numbers (converts to string first)
+- `Round()` uses Decimal for correct banker's rounding
+- `For i = 5 To 1` (no Step) does not execute (default step is always 1)
+- Error numbers: 501 for const reassignment, 500 for undefined variable under Option Explicit
