@@ -64,3 +64,16 @@ class TestRegressionScripts:
         assert interpreter._environment.get('totalCount') == 64
         assert interpreter._environment.get('passCount') == 64
         assert interpreter._environment.get('failCount') == 0
+
+    def test_regression_script_epsilon_cscript_compat(self):
+        """cscript.exe compatibility: boolean display, bitwise Not/And/Or,
+        Null concatenation, date literals, float precision, Hex, TypeName,
+        VarType, IsObject, Len, Round, error numbers, and more.
+        All expected values verified against cscript.exe //nologo on Windows 11."""
+        script = RegressionTestsUtils.load_script('epsilon-cscript-compat.vbs')
+        program = parse(script)
+        interpreter = Interpreter()
+        interpreter.interpret(program)
+        assert interpreter._environment.get('totalCount') == 136
+        assert interpreter._environment.get('passCount') == 136
+        assert interpreter._environment.get('failCount') == 0
