@@ -1,6 +1,6 @@
 # pybasil
 
-A VBScript parser and interpreter written in Python, aiming for full compatibility with VBScript 5.8 and beyond.
+A VBScript parser and interpreter written in Python, scoped as: VBScript 5.8 first, plus opt-in or non-conflicting VBA-compatible extensions and beyond.
 
 ## Current Support
 

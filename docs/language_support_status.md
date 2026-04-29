@@ -12,7 +12,7 @@
   - Arithmetic: `+`, `-`, `*`, `/`, `\` (integer division), `Mod`, `^`
   - String: `&`
   - Comparison: `=`, `<>`, `<`, `>`, `<=`, `>=`, `Is`
-  - Logical/bitwise: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp` (bitwise semantics matching VBScript — `Not` returns bitwise complement, `And`/`Or` on booleans return integers)
+  - Logical/bitwise: `And`, `Or`, `Not`, `Xor`, `Eqv`, `Imp` (bitwise semantics matching VBScript; when both operands are Boolean the result is Boolean, otherwise bitwise integer)
 - **With blocks**:
   - `With obj ... End With` - execute statements against an object
   - `.Property` access and `.Method(args)` calls inside With blocks
@@ -21,7 +21,7 @@
 - **Control flow**:
   - `If ... Then ... ElseIf ... Else ... End If` (block form)
   - `If ... Then statement [Else statement]` (single-line form, with colon-separated statements)
-  - `Select Case ... Case ... Case Else ... End Select` (including `Case x To y` ranges and `Case Is > x` comparisons)
+  - `Select Case ... Case ... Case Else ... End Select` (multi-value `Case 1, 2, 3` supported; `Case x To y` and `Case Is > x` are VBA-only and not supported)
   - `For ... To ... [Step ...] ... Next`
   - `For Each ... In ... Next`
   - `While ... Wend`
@@ -88,19 +88,24 @@
 
 ## cscript Compatibility
 
-Tested against 243 test cases comparing output with cscript.exe (VBScript 5.8, Windows 11).
+Tested against 243+ test cases comparing output with cscript.exe (VBScript 5.8, Windows 11).
 
 Key compatibility behaviors:
 - `WScript.Echo` displays booleans as `-1`/`0` (matching VBScript's integer representation)
 - `CStr(True)` returns `"True"` (string conversion uses word form)
-- `Not` operator is bitwise complement (e.g., `Not 1` → `-2`)
-- `And`/`Or`/`Eqv`/`Imp` use bitwise integer semantics on all numeric/boolean operands
+- `Not` on Boolean returns Boolean (`Not True` = `False`); on integers returns bitwise complement (`Not 1` = `-2`)
+- `And`/`Or`/`Xor` on two Booleans return Boolean; on integers use bitwise semantics
+- `^` (power) is left-associative: `2 ^ 3 ^ 2` = 64
+- Comparisons: `True = 1` is `False` (Boolean converts to -1 for numeric comparison)
+- Number vs string comparison converts string to number (raises Type Mismatch if non-numeric)
+- `Select Case` uses binary (case-sensitive) string comparison by default
 - `Null & "str"` yields `"str"` (Null treated as empty string in concatenation)
 - Float display uses 15 significant digits matching VBScript's Double precision
-- `Hex(-1)` returns `FFFF` (16-bit for Integer-range values)
-- `TypeName` distinguishes `Integer` (-32768..32767) from `Long`
+- `Hex(-1)` / `Oct(-1)` return `FFFF` / `177777` (16-bit for Integer-range values)
+- `TypeName` / `VarType` distinguish `Integer` (-32767..32767) from `Long`
 - `VarType` returns `9` (vbObject) for `Nothing`, Dictionary, and class instances
-- `IsObject(Nothing)` returns `True`
+- `IsObject(Nothing)` returns `True`; `IsNumeric(Empty)` returns `True`
+- `CBool("0")` returns `False`; `CBool("")` raises Type Mismatch
 - `Len()` accepts numbers (converts to string first)
 - `Round()` uses Decimal for correct banker's rounding
 - `For i = 5 To 1` (no Step) does not execute (default step is always 1)
