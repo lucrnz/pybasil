@@ -65,12 +65,12 @@ class TestInterpreterArithmetic:
         interpreter.interpret(program)
         assert interpreter._environment.get('x') == 1024
 
-    def test_exponentiation_right_associative(self):
+    def test_exponentiation_left_associative(self):
         program = parse('x = 2 ^ 3 ^ 2')
         interpreter = Interpreter()
         interpreter.interpret(program)
-        # Right-associative: 2 ^ (3 ^ 2) = 2 ^ 9 = 512
-        assert interpreter._environment.get('x') == 512
+        # Left-associative: (2 ^ 3) ^ 2 = 8 ^ 2 = 64
+        assert interpreter._environment.get('x') == 64
 
     def test_negation(self):
         program = parse('x = -5')

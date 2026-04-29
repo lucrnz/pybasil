@@ -575,6 +575,9 @@ class VBScriptTransformer(Transformer):
     def pow_expr(self, items: List) -> ASTNode:
         return self._build_tail_chain(items, BinaryOp.POW)
 
+    def pow_tail(self, items: List) -> ASTNode:
+        return items[0]
+
     def _build_tail_chain(self, items: List, op: BinaryOp) -> ASTNode:
         if len(items) == 1:
             return items[0]
