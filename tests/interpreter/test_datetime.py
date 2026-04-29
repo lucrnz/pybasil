@@ -237,7 +237,7 @@ class TestDateTimeValueFunctions:
         ''')
         interp = Interpreter()
         interp.interpret(program)
-        assert interp._environment.get('result') == -1
+        assert interp._environment.get('result') is True
 
     def test_timevalue_strips_date(self):
         program = parse('''
@@ -697,7 +697,7 @@ class TestDateTimeIntegration:
         ''')
         interp = Interpreter()
         interp.interpret(program)
-        assert interp._environment.get('result') == -1
+        assert interp._environment.get('result') is True
 
     def test_all_month_names(self):
         output = io.StringIO()

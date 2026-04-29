@@ -944,9 +944,9 @@ class Interpreter:
         if isinstance(left, VBScriptNothing) and isinstance(right, VBScriptNothing):
             return True
 
-        # Handle strings (case-insensitive comparison in VBScript)
+        # Handle strings (binary/case-sensitive comparison by default in VBScript)
         if isinstance(left, str) and isinstance(right, str):
-            return left.lower() == right.lower()
+            return left == right
 
         # Handle numbers
         if isinstance(left, (int, float)) and isinstance(right, (int, float)):
@@ -1978,6 +1978,8 @@ class Interpreter:
         return lv + rv
 
     def _binop_xor(self, left: Any, right: Any) -> Any:
+        if isinstance(left, bool) and isinstance(right, bool):
+            return left != right
         return int(self._to_number(left)) ^ int(self._to_number(right))
 
     def _binop_eqv(self, left: Any, right: Any) -> Any:
@@ -2064,7 +2066,7 @@ class Interpreter:
             if isinstance(operand, VBScriptNull):
                 return NULL
             if isinstance(operand, bool):
-                return ~(-1 if operand else 0)
+                return not operand
             if isinstance(operand, int):
                 return ~operand
             if isinstance(operand, float):
@@ -2092,12 +2094,23 @@ class Interpreter:
             return NULL
 
         # Type coercion for comparison
-        if isinstance(left, str) or isinstance(right, str):
+        if isinstance(left, bool) and isinstance(right, bool):
+            pass  # compare booleans directly
+        elif isinstance(left, bool):
+            left = self._to_number(left)
+            right = self._to_number(right)
+        elif isinstance(right, bool):
+            left = self._to_number(left)
+            right = self._to_number(right)
+        elif isinstance(left, str) and isinstance(right, str):
+            pass  # compare strings directly
+        elif isinstance(left, str) and _is_numeric_not_bool(right):
+            left = self._to_number(left)
+        elif isinstance(right, str) and _is_numeric_not_bool(left):
+            right = self._to_number(right)
+        elif isinstance(left, str) or isinstance(right, str):
             left = self._to_string(left)
             right = self._to_string(right)
-        elif isinstance(left, bool) or isinstance(right, bool):
-            left = self._to_boolean(left)
-            right = self._to_boolean(right)
         else:
             try:
                 left = self._to_number(left)
@@ -2158,6 +2171,9 @@ class Interpreter:
             return False if not self._to_boolean(right) else NULL
         if isinstance(right, VBScriptNull):
             return False if not self._to_boolean(left) else NULL
+        # Both booleans: result is Boolean
+        if isinstance(left, bool) and isinstance(right, bool):
+            return left and right
         # VBScript uses bitwise AND for numbers and booleans
         if isinstance(left, (int, float)) or isinstance(right, (int, float)) or isinstance(left, bool) or isinstance(right, bool):
             lv = int(self._to_number(left))
@@ -2173,6 +2189,9 @@ class Interpreter:
             return True if self._to_boolean(right) else NULL
         if isinstance(right, VBScriptNull):
             return True if self._to_boolean(left) else NULL
+        # Both booleans: result is Boolean
+        if isinstance(left, bool) and isinstance(right, bool):
+            return left or right
         # VBScript uses bitwise OR for numbers and booleans
         if isinstance(left, (int, float)) or isinstance(right, (int, float)) or isinstance(left, bool) or isinstance(right, bool):
             lv = int(self._to_number(left))
@@ -2252,7 +2271,10 @@ class Interpreter:
                 return True
             if value.lower() == 'false':
                 return False
-            return True
+            try:
+                return float(value) != 0
+            except ValueError:
+                return True
         if isinstance(value, VBScriptDate):
             return value.serial != 0.0
         if isinstance(value, VBScriptEmpty):
