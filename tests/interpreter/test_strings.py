@@ -334,4 +334,4 @@ class TestStringFunctionsHexOct:
         program = parse('x = Oct(-1)')
         interp = Interpreter()
         interp.interpret(program)
-        assert interp._environment.get('x') == '37777777777'
+        assert interp._environment.get('x') == '177777'

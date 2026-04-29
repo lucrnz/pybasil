@@ -343,7 +343,10 @@ def builtin_oct(interp: Interpreter, number: Any) -> str:
     """Oct function - convert number to octal string."""
     n = int(interp._to_number(number))
     if n < 0:
-        n = n & 0xFFFFFFFF
+        if -32767 <= n:
+            n = n & 0xFFFF
+        else:
+            n = n & 0xFFFFFFFF
     return format(n, 'o')
 
 
@@ -381,6 +384,8 @@ def builtin_cdbl(interp: Interpreter, value: Any) -> float:
 
 def builtin_cbool(interp: Interpreter, value: Any) -> bool:
     """CBool function."""
+    if isinstance(value, str) and value == '':
+        raise VBScriptError('Type mismatch')
     return interp._to_boolean(value)
 
 
@@ -402,6 +407,8 @@ def builtin_cdate(interp: Interpreter, value: Any) -> VBScriptDate:
 def builtin_isnumeric(interp: Interpreter, value: Any) -> bool:
     """IsNumeric function."""
     if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, VBScriptEmpty):
         return True
     if isinstance(value, str):
         try:
@@ -462,7 +469,7 @@ def builtin_typename(interp: Interpreter, value: Any) -> str:
     if isinstance(value, bool):
         return 'Boolean'
     if isinstance(value, int):
-        if -32767 <= value <= 32767:
+        if -32768 < value <= 32767:
             return 'Integer'
         return 'Long'
     if isinstance(value, float):
@@ -485,7 +492,9 @@ def builtin_vartype(interp: Interpreter, value: Any) -> int:
     if isinstance(value, bool):
         return 11  # vbBoolean
     if isinstance(value, int):
-        return 2  # vbInteger
+        if -32767 <= value <= 32767:
+            return 2  # vbInteger
+        return 3  # vbLong
     if isinstance(value, float):
         return 5  # vbDouble
     if isinstance(value, str):
